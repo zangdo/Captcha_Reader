@@ -153,7 +153,7 @@ if __name__ == "__main__":
     # 2. CẤU HÌNH TRAINING ARGUMENTS CHO A100 + WANDB
     # ==============================================================================
     training_args = TrainingArguments(
-        output_dir="./donut_captcha_tmp", # Vẫn phải giữ để lưu checkpoint tạm phục vụ Early Stopping
+        output_dir="/content/drive/MyDrive/Captcha_Reader/donut_captcha_tmp", # Vẫn phải giữ để lưu checkpoint tạm phục vụ Early Stopping
         per_device_train_batch_size=128,   
         per_device_eval_batch_size=128,
         dataloader_num_workers=8,          
