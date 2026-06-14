@@ -125,7 +125,7 @@ if __name__ == "__main__":
     model = VisionEncoderDecoderModel.from_pretrained("naver-clova-ix/donut-base")
 
     # Ép kích thước ảnh của mô hình về chuẩn CAPTCHA (60x220)
-    processor.image_processor.size = {"height": 96, "width": 384}
+    processor.image_processor.size = {"height": 320, "width": 960}
     processor.image_processor.do_align_long_axis = False
 
     # Thêm token báo hiệu tác vụ giải CAPTCHA
@@ -153,8 +153,8 @@ if __name__ == "__main__":
     # ==============================================================================
     training_args = TrainingArguments(
         output_dir="/content/drive/MyDrive/Captcha_Reader/donut_captcha_tmp", # Vẫn phải giữ để lưu checkpoint tạm phục vụ Early Stopping
-        per_device_train_batch_size=128,   
-        per_device_eval_batch_size=128,
+        per_device_train_batch_size=64,   
+        per_device_eval_batch_size=64,
         dataloader_num_workers=8,          
         bf16=True,                         
         learning_rate=2e-5,                
