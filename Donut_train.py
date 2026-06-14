@@ -125,7 +125,7 @@ if __name__ == "__main__":
     model = VisionEncoderDecoderModel.from_pretrained("naver-clova-ix/donut-base")
 
     # Ép kích thước ảnh của mô hình về chuẩn CAPTCHA (60x220)
-    processor.image_processor.size = {"height": 60, "width": 220}
+    processor.image_processor.size = {"height": 96, "width": 384}
     processor.image_processor.do_align_long_axis = False
 
     # Thêm token báo hiệu tác vụ giải CAPTCHA
