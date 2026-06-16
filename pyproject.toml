@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "albumentations>=2.0.8",
+    "evaluate>=0.4.6",
+    "jiwer>=4.0.0",
     "keras>=3.14.1",
     "matplotlib>=3.10.9",
     "opencv-python>=4.13.0.92",

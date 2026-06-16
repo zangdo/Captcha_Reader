@@ -1,4 +1,7 @@
 import os
+from sample_test import SampleTestCallback
+import evaluate
+import re
 import wandb
 from torch.utils.data import Dataset
 from PIL import Image
@@ -20,6 +23,7 @@ ID_TO_CHAR = {v: k for k, v in CHAR_TO_ID.items()}
 # ==============================================================================
 # 1. TRẠM THÔNG DỊCH: ĐỌC DỮ LIỆU YOLO -> BIẾN THÀNH TEXT CHO DONUT
 # ==============================================================================
+cer_metric = evaluate.load("cer")
 class CaptchaDonutDataset(Dataset):
     def __init__(self, image_dir, label_dir, processor, augmenter=None, max_length=12):
         self.image_dir = image_dir
@@ -88,28 +92,34 @@ class CaptchaDonutDataset(Dataset):
 # ==============================================================================
 def compute_metrics(pred):
     labels_ids = pred.label_ids
-    # 1. Bóc lớp vỏ Tuple: Nếu là tuple thì lấy phần tử đầu tiên (Logits), nếu không thì giữ nguyên
     logits = pred.predictions[0] if isinstance(pred.predictions, tuple) else pred.predictions
-    
-    # 2. Lúc này logits đã là ma trận numpy chuẩn chỉnh, gọi argmax thoải mái
     pred_ids = logits.argmax(axis=-1)
 
-    # Đưa các token -100 về lại pad_token để decode không bị lỗi
     labels_ids[labels_ids == -100] = processor.tokenizer.pad_token_id
 
     pred_str = processor.batch_decode(pred_ids, skip_special_tokens=True)
     label_str = processor.batch_decode(labels_ids, skip_special_tokens=True)
 
-    # Dọn dẹp khoảng trắng dư thừa và so sánh
+    p_clean_list = []
+    l_clean_list = []
     exact_matches = 0
+    
     for p, l in zip(pred_str, label_str):
-        # Cắt bỏ cái tag <s_captcha> lúc in ra
-        p_clean = p.replace("<s_captcha>", "").strip()
-        l_clean = l.replace("<s_captcha>", "").strip()
+        p_clean = re.sub(r'<[^>]+>', '', p).strip()
+        l_clean = re.sub(r'<[^>]+>', '', l).strip()
+        
+        p_clean_list.append(p_clean)
+        l_clean_list.append(l_clean)
+        
         if p_clean == l_clean:
             exact_matches += 1
 
-    return {"exact_match": exact_matches / len(label_str)}
+    cer_score = cer_metric.compute(predictions=p_clean_list, references=l_clean_list)
+
+    return {
+        "exact_match": exact_matches / len(label_str),
+        "cer": cer_score
+    }
 
 # ==============================================================================
 # 3. HỆ THỐNG HUẤN LUYỆN CHÍNH (MAIN TIER)
@@ -175,6 +185,7 @@ if __name__ == "__main__":
         # Cơ chế Checkpoint & Early Stopping (Bắt buộc lưu local tạm thời)
         eval_strategy="epoch",
         save_strategy="epoch",
+        save_total_limit=1,
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss", 
         greater_is_better=False,           
@@ -188,7 +199,16 @@ if __name__ == "__main__":
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)]
+        callbacks=[
+            EarlyStoppingCallback(early_stopping_patience=5),
+            
+            SampleTestCallback(
+                processor=processor, 
+                eval_dataset=val_dataset, # Nhớ đổi thành val_dataset cho khớp với tên biến của cậu ở trên nhé!
+                num_samples=10,
+                output_dir="/content/drive/MyDrive/Captcha_Reader/sample_tests" # Đường dẫn lưu ảnh
+            )
+        ]
     )
 
     print("🔥 Bắt đầu quá trình nướng GPU và đẩy Log lên Weights & Biases...")
