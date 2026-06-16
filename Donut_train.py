@@ -123,6 +123,11 @@ if __name__ == "__main__":
     # Load mô hình pre-trained
     processor = DonutProcessor.from_pretrained("naver-clova-ix/donut-base")
     model = VisionEncoderDecoderModel.from_pretrained("naver-clova-ix/donut-base")
+        # Tắt xuất Cache của toàn bộ model
+    model.config.use_cache = False
+
+    # Chắc cú thì tắt luôn cả trong cấu hình của thằng Não (BART Decoder)
+    model.config.decoder.use_cache = False
 
     # Ép kích thước ảnh của mô hình về chuẩn CAPTCHA (60x220)
     processor.image_processor.size = {"height": 96, "width": 384}
