@@ -48,7 +48,7 @@ class CaptchaDonutDataset(Dataset):
             with open(txt_path, 'r') as f:
                 for line in f.readlines():
                     parts = line.split()
-                    class_id = int(parts[0])
+                    class_id = int(float(parts[0]))
                     
                     # Gom tọa độ lại cho thằng Augmenter nó khỏi chửi
                     box = [float(parts[1]), float(parts[2]), float(parts[3]), float(parts[4])]
