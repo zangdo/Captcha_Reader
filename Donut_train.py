@@ -88,7 +88,11 @@ class CaptchaDonutDataset(Dataset):
 # ==============================================================================
 def compute_metrics(pred):
     labels_ids = pred.label_ids
-    pred_ids = pred.predictions.argmax(axis=-1) # Lấy token có xác suất cao nhất
+    # 1. Bóc lớp vỏ Tuple: Nếu là tuple thì lấy phần tử đầu tiên (Logits), nếu không thì giữ nguyên
+    logits = pred.predictions[0] if isinstance(pred.predictions, tuple) else pred.predictions
+    
+    # 2. Lúc này logits đã là ma trận numpy chuẩn chỉnh, gọi argmax thoải mái
+    pred_ids = logits.argmax(axis=-1)
 
     # Đưa các token -100 về lại pad_token để decode không bị lỗi
     labels_ids[labels_ids == -100] = processor.tokenizer.pad_token_id
