@@ -1,7 +1,7 @@
 import os
 from sample_test import SampleTestCallback
 import evaluate
-import re
+from utils import clean_text
 import wandb
 from torch.utils.data import Dataset
 from PIL import Image
@@ -90,23 +90,25 @@ class CaptchaDonutDataset(Dataset):
 # ==============================================================================
 # 2. HÀM TÍNH TOÁN EXACT MATCH (IN RA CHO SƯỚNG MẮT)
 # ==============================================================================
-def compute_metrics(pred):
+def compute_metrics(pred, processor):
     labels_ids = pred.label_ids
     logits = pred.predictions[0] if isinstance(pred.predictions, tuple) else pred.predictions
     pred_ids = logits.argmax(axis=-1)
 
     labels_ids[labels_ids == -100] = processor.tokenizer.pad_token_id
 
-    pred_str = processor.batch_decode(pred_ids, skip_special_tokens=True)
-    label_str = processor.batch_decode(labels_ids, skip_special_tokens=True)
+    # NHỚ set skip_special_tokens=False để giữ lại </s_captcha> cho hàm clean_text chém đuôi
+    pred_str = processor.batch_decode(pred_ids, skip_special_tokens=False)
+    label_str = processor.batch_decode(labels_ids, skip_special_tokens=False)
 
     p_clean_list = []
     l_clean_list = []
     exact_matches = 0
     
     for p, l in zip(pred_str, label_str):
-        p_clean = re.sub(r'<[^>]+>', '', p).strip()
-        l_clean = re.sub(r'<[^>]+>', '', l).strip()
+        # Gọi thẳng hàm clean_text, gọn gàng và uy lực
+        p_clean = clean_text(p)
+        l_clean = clean_text(l)
         
         p_clean_list.append(p_clean)
         l_clean_list.append(l_clean)
@@ -142,7 +144,6 @@ if __name__ == "__main__":
 
     # Chắc cú thì tắt luôn cả trong cấu hình của thằng Não (BART Decoder)
     model.config.decoder.use_cache = False
-
     # Ép kích thước ảnh của mô hình về chuẩn CAPTCHA (60x220)
     processor.image_processor.size = {"height": 96, "width": 384}
     processor.image_processor.do_align_long_axis = False
@@ -154,6 +155,9 @@ if __name__ == "__main__":
     # Khai báo token đặc biệt cho Model
     model.config.pad_token_id = processor.tokenizer.pad_token_id
     model.config.decoder_start_token_id = processor.tokenizer.convert_tokens_to_ids(["<s_captcha>"])[0]
+    captcha_eos_id = processor.tokenizer.convert_tokens_to_ids(["</s_captcha>"])[0]
+    model.config.eos_token_id = captcha_eos_id
+    model.config.decoder.eos_token_id = captcha_eos_id
 
     print("📦 Đang chuẩn bị Dataset...")
     # Khởi tạo bộ bóp méo hình ảnh
@@ -171,7 +175,7 @@ if __name__ == "__main__":
     # 2. CẤU HÌNH TRAINING ARGUMENTS CHO A100 + WANDB
     # ==============================================================================
     training_args = TrainingArguments(
-        output_dir="/content/drive/MyDrive/Captcha_Reader/donut_captcha_tmp", # Vẫn phải giữ để lưu checkpoint tạm phục vụ Early Stopping
+        output_dir="./tmp_donut_checkpoints", # Vẫn phải giữ để lưu checkpoint tạm phục vụ Early Stopping
         per_device_train_batch_size=128,   
         per_device_eval_batch_size=128,
         dataloader_num_workers=8,          
@@ -198,7 +202,7 @@ if __name__ == "__main__":
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
-        compute_metrics=compute_metrics,
+        compute_metrics = lambda pred: compute_metrics(pred, processor),
         callbacks=[
             EarlyStoppingCallback(early_stopping_patience=5),
             

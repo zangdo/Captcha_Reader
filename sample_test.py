@@ -3,6 +3,7 @@ import random
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from utils import clean_text
 import wandb
 import os
 
@@ -41,22 +42,28 @@ class SampleTestCallback(TrainerCallback):
             
             label_ids = sample['labels'].clone()
             label_ids[label_ids == -100] = self.processor.tokenizer.pad_token_id
-            true_label = self.processor.decode(label_ids, skip_special_tokens=True).strip()
+            raw_true = self.processor.decode(label_ids, skip_special_tokens=False)
+            
+            # Tái sử dụng clean_text
+            true_label = clean_text(raw_true) 
 
-            # 2. Model dự đoán
+            # Ép model tự sinh chữ (Inference)
             with torch.no_grad():
                 outputs = model.generate(
                     pixel_values,
                     max_length=16,
                     pad_token_id=self.processor.tokenizer.pad_token_id,
-                    eos_token_id=self.processor.tokenizer.eos_token_id,
                     use_cache=True,
                     num_beams=1,
                     bad_words_ids=[[self.processor.tokenizer.unk_token_id]],
                     return_dict_in_generate=True,
                 )
             
-            pred_label = self.processor.decode(outputs.sequences[0], skip_special_tokens=True).strip()
+            # Giải mã nhãn dự đoán
+            raw_pred = self.processor.decode(outputs.sequences[0], skip_special_tokens=False)
+            
+            # Tái sử dụng clean_text
+            pred_label = clean_text(raw_pred)
             
             is_correct = (pred_label == true_label)
             if is_correct:
