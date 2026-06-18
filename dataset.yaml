@@ -1,0 +1,43 @@
+# 1. Đường dẫn gốc tới thư mục dataset của cậu (có thể dùng đường dẫn tuyệt đối cho chắc cốp)
+path: ./captcha_dataset  
+
+# 2. Đường dẫn tới thư mục ảnh Train và Val (YOLO sẽ tự động nội suy ra thư mục labels nằm song song)
+train: train/images
+val: val/images
+
+# 3. Định nghĩa các class (Tử huyệt nằm ở đây)
+# BẮT BUỘC phải theo đúng thứ tự Index trong biến CHARSET của cậu:
+# "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+names:
+  0: '2'
+  1: '3'
+  2: '4'
+  3: '5'
+  4: '6'
+  5: '7'
+  6: '8'
+  7: '9'
+  8: 'A'
+  9: 'B'
+  10: 'C'
+  11: 'D'
+  12: 'E'
+  13: 'F'
+  14: 'G'
+  15: 'H'
+  16: 'J'
+  17: 'K'
+  18: 'L'
+  19: 'M'
+  20: 'N'
+  21: 'P'
+  22: 'Q'
+  23: 'R'
+  24: 'S'
+  25: 'T'
+  26: 'U'
+  27: 'V'
+  28: 'W'
+  29: 'X'
+  30: 'Y'
+  31: 'Z'

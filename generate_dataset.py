@@ -75,7 +75,44 @@ class DatasetBuilder:
         # Lưu file nhãn
         with open(os.path.join(out_lbl_dir, txt_name), "w") as f:
             f.write("\n".join(labels))
-
+    def build_yolo_labels(self):
+        """
+        Quét lại toàn bộ file .txt vừa sinh ra để:
+        1. Xóa đuôi .0 của Class ID (ép về int).
+        2. Gộp class chữ thường (ID 36-61) lùi về class chữ hoa (ID 10-35).
+        """
+        print("\n🔧 Đang chuẩn hóa nhãn YOLO (Ép kiểu int và gộp chữ thường -> hoa)...")
+        
+        for label_dir in [TRAIN_LBL_DIR, VAL_LBL_DIR]:
+            # Bỏ qua nếu thư mục không tồn tại
+            if not os.path.exists(label_dir):
+                continue
+                
+            txt_files = [f for f in os.listdir(label_dir) if f.endswith('.txt')]
+            
+            for filename in tqdm(txt_files, desc=f"Xử lý {os.path.basename(label_dir)}", unit="file"):
+                filepath = os.path.join(label_dir, filename)
+                with open(filepath, 'r') as f:
+                    lines = f.readlines()
+                    
+                new_lines = []
+                for line in lines:
+                    parts = line.strip().split()
+                    if len(parts) == 5:
+                        # 1. Ép float -> int
+                        class_id = int(float(parts[0]))
+                        
+                        # 2. Gộp nhãn (a-z lùi về A-Z)
+                        if 36 <= class_id <= 61:
+                            class_id -= 26
+                            
+                        # Ghi lại chuỗi chuẩn
+                        new_line = f"{class_id} {parts[1]} {parts[2]} {parts[3]} {parts[4]}\n"
+                        new_lines.append(new_line)
+                        
+                # Ghi đè file
+                with open(filepath, 'w') as f:
+                    f.writelines(new_lines)
     def build(self):
         """Thực thi toàn bộ quy trình xây dựng Dataset"""
         num_train = int(NUM_IMAGES * TRAIN_RATIO)
@@ -108,4 +145,5 @@ class DatasetBuilder:
 # ==============================================================================
 if __name__ == "__main__":
     builder = DatasetBuilder()
-    builder.build()
+    #builder.build()
+    builder.build_yolo_labels()

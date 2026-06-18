@@ -11,10 +11,11 @@ TRAIN_RATIO = 0.9        # Tỷ lệ Train/Val (90/10)
 # ==============================================================================
 DATASET_DIR = "captcha_dataset"
 TRAIN_IMG_DIR = os.path.join(DATASET_DIR, "train", "images")
-TRAIN_LBL_DIR = os.path.join(DATASET_DIR, "train", "labels")
+TRAIN_LBL_DIR = os.path.join(DATASET_DIR, "train", "OCR_labels")
+TRAIN_LBL_YOLO_DIR = os.path.join(DATASET_DIR, "train", "labels") # Thư mục nhãn YOLO riêng cho Training
 VAL_IMG_DIR = os.path.join(DATASET_DIR, "val", "images")
-VAL_LBL_DIR = os.path.join(DATASET_DIR, "val", "labels")
-
+VAL_LBL_DIR = os.path.join(DATASET_DIR, "val", "OCR_labels")
+VAL_LBL_YOLO_DIR = os.path.join(DATASET_DIR, "val", "labels") # Thư mục nhãn YOLO riêng cho Validation
 FONT_PATHS = ["arial.ttf"]
 
 # ==============================================================================
@@ -27,7 +28,7 @@ IMG_H = 60
 # Bảng chữ cái
 VOCAB = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz"
 CHAR_TO_ID = {char: idx for idx, char in enumerate(VOCAB)}
-
+CHARSET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 # Số lượng ký tự sinh ra trên 1 ảnh
 MIN_CHARS = 5
 MAX_CHARS = 8

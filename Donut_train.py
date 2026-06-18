@@ -164,10 +164,10 @@ if __name__ == "__main__":
     aug_module = CaptchaAugmenter()
     
     # Tập Train: Bật bóp méo on-the-fly để AI luyện công
-    train_dataset = CaptchaDonutDataset("captcha_dataset/train/images", "captcha_dataset/train/labels", processor, augmenter=aug_module)
+    train_dataset = CaptchaDonutDataset("captcha_dataset/train/images", "captcha_dataset/train/OCR_labels", processor, augmenter=aug_module)
     
     # TẬP VAL: SỬA LỖI - ĐỂ NONE ĐỂ GIỮ ẢNH SẠCH LÚC ĐÁNH GIÁ ĐỘ BÁ ĐẠO
-    val_dataset = CaptchaDonutDataset("captcha_dataset/val/images", "captcha_dataset/val/labels", processor, augmenter=None)
+    val_dataset = CaptchaDonutDataset("captcha_dataset/val/images", "captcha_dataset/val/OCR_labels", processor, augmenter=None)
 
     print(f"✅ Đã tải: {len(train_dataset)} ảnh Train | {len(val_dataset)} ảnh Val")
 
