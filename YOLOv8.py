@@ -17,6 +17,7 @@ import evaluate
 from ultralytics.models.yolo.detect import DetectionTrainer
 from ultralytics.data.dataset import YOLODataset
 from ultralytics import YOLO
+from ultralytics.utils.instance import Instances
 from augment import CaptchaAugmenter # Import class nhiễu của cậu vào
 import wandb
 import os
@@ -138,27 +139,37 @@ class CustomCaptchaDataset(YOLODataset):
         
         # Nếu đang train thì lôi ra hành hạ
         if self.my_augmenter:
-            # data['im'] là numpy array hệ BGR của OpenCV
-            img_bgr = data['img']
-            # Chuyển BGR -> RGB để ném cho hàm của cậu (như Albumentations hay PIL)
+            # 🛑 Lấy ảnh bằng key 'img' (Như anh em mình vừa fix lúc nãy)
+            img_bgr = data['img'] 
             img_rgb = img_bgr[:, :, ::-1] 
             
-            # Lấy list bounding box (chuẩn hóa 0-1) và class ID
-            bboxes = data['bboxes'].tolist() 
+            # 🛑 SỬA CHỖ NÀY: Móc tọa độ bboxes từ bên trong object 'instances' ra!
+            bboxes = data['instances'].bboxes.tolist() 
             classes = data['cls'].flatten().tolist()
             
             try:
-                # 💥 BÙM! Vã Augment On-the-fly của Tú vào đây!
+                # 💥 Vã Augment On-the-fly của Tú vào đây!
                 aug_img_rgb, aug_bboxes, aug_classes = self.my_augmenter.augment(
                     image=img_rgb, bboxes=bboxes, class_labels=classes
                 )
                 
-                # Cập nhật lại vào dict của YOLO
-                data['img'] = aug_img_rgb[:, :, ::-1] # Trả lại hệ BGR cho YOLO
-                data['bboxes'] = np.array(aug_bboxes, dtype=np.float32)
+                # 1. Cập nhật lại ảnh và nhãn Class
+                data['img'] = aug_img_rgb[:, :, ::-1] 
                 data['cls'] = np.array(aug_classes, dtype=np.float32).reshape(-1, 1)
+                
+                # 2. 🛑 ĐÓNG GÓI LẠI BOX VÀO OBJECT 'INSTANCES'
+                # Đề phòng trường hợp nhiễu quá đà làm bay mất box -> list rỗng
+                if len(aug_bboxes) == 0:
+                    aug_bboxes_np = np.zeros((0, 4), dtype=np.float32)
+                else:
+                    aug_bboxes_np = np.array(aug_bboxes, dtype=np.float32)
+                
+                # Gán lại chuẩn form của Ultralytics
+                data['instances'] = Instances(aug_bboxes_np, bbox_format="xywh", normalized=True)
+                
             except Exception as e:
-                # Fallback an toàn: Nếu augment lỗi/nuốt mất box, trả về ảnh gốc
+                # Nếu lỗi thì in ra log để biết đường mò, không pass im lặng nữa
+                print(f"⚠️ Bỏ qua Augment ở ảnh index {index} do lỗi: {e}")
                 pass
 
         return data
