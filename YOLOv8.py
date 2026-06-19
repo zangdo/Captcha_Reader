@@ -1,3 +1,9 @@
+import sys
+from types import ModuleType
+
+# 💥 THỦ THUẬT HACK MODULE: Tạo một object rỗng đánh lừa Python 
+# rằng torchaudio đã được load thành công, cấm nó mò vào file .so bị lỗi nữa.
+sys.modules['torchaudio'] = ModuleType('torchaudio')
 import numpy as np
 import evaluate
 from ultralytics.models.yolo.detect import DetectionTrainer
