@@ -164,8 +164,18 @@ class CustomCaptchaDataset(YOLODataset):
                 else:
                     aug_bboxes_np = np.array(aug_bboxes, dtype=np.float32)
                 
-                # Gán lại chuẩn form của Ultralytics
-                data['instances'] = Instances(aug_bboxes_np, bbox_format="xywh", normalized=True)
+                # 🛑 ĐÓNG GÓI LẠI BOX NHƯNG PHẢI KẾ THỪA CÁC THUỘC TÍNH RỖNG CỦA YOLO
+                orig_segments = data['instances'].segments
+                orig_keypoints = data['instances'].keypoints
+                
+                # Gán lại chuẩn form, nhét lại segments và keypoints cũ vào
+                data['instances'] = Instances(
+                    bboxes=aug_bboxes_np, 
+                    segments=orig_segments, 
+                    keypoints=orig_keypoints, 
+                    bbox_format="xywh", 
+                    normalized=True
+                )
                 
             except Exception as e:
                 # Nếu lỗi thì in ra log để biết đường mò, không pass im lặng nữa
