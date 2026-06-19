@@ -6,7 +6,8 @@ from ultralytics import YOLO
 from augment import CaptchaAugmenter # Import class nhiễu của cậu vào
 import wandb
 import os
-from config import CHARSET, VAL_IMG_YOLO_DIR     
+from config import CHARSET, VAL_IMG_DIR
+from sample_test_YOLO import YoloVisualLogger # Import class vẽ box của Tú vào đây  
 cer_metric = evaluate.load("cer")
 # ==============================================================================
 # 1. GHI ĐÈ DATASET: CHÈN AUGMENTER ON-THE-FLY
@@ -44,7 +45,7 @@ def on_fit_epoch_end(trainer):
     current_model = trainer.model
     
     # Lấy danh sách ảnh Validation để đánh giá chuỗi (Lấy khoảng 100-200 ảnh để chạy cho nhanh)
-    val_images = [os.path.join(VAL_IMG_YOLO_DIR, f) for f in os.listdir(VAL_IMG_YOLO_DIR) if f.endswith('.png')]
+    val_images = [os.path.join(VAL_IMG_DIR, f) for f in os.listdir(VAL_IMG_DIR) if f.endswith('.png')]
     
     p_clean_list = []
     l_clean_list = []
@@ -178,7 +179,7 @@ class CustomTrainer(DetectionTrainer):
 if __name__ == "__main__":
     # Thay vì dùng lệnh `model = YOLO(...); model.train(...)` truyền thống,
     # Cậu gọi thẳng thằng CustomTrainer và ném cấu hình (overrides) cho nó!
-    
+    visual_logger = YoloVisualLogger(val_dir=VAL_IMG_DIR, num_samples=10)
     trainer = CustomTrainer(overrides={
         "model": "yolov8n.pt",         # Load tạ gốc của YOLOv8n
         "data": "dataset.yaml",        # File config trỏ đến thư mục train/val
@@ -198,6 +199,6 @@ if __name__ == "__main__":
     
     # Nhớ thêm cái hook vẽ CER/ExactMatch lên WandB anh em mình viết ban nãy vào đây
     trainer.add_callback("on_fit_epoch_end", on_fit_epoch_end) 
-    
+    trainer.add_callback("on_fit_epoch_end", visual_logger.on_fit_epoch_end) # Thêm callback vẽ box của Tú vào đây
     # Nổ máy! Lúc này Data chạy ngầm qua cái CaptchaAugmenter của cậu
     trainer.train()
