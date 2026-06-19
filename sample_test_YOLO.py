@@ -5,6 +5,7 @@ import numpy as np
 import wandb
 from ultralytics import YOLO
 from config import CHARSET, VOCAB
+from utils import run_safe_inference
 
 # ==============================================================================
 # 1. CLASS VẼ BOX CỦA TÚ (Giữ nguyên tinh hoa, chỉ sửa tên biến xíu cho khớp)
@@ -86,36 +87,32 @@ class YoloVisualLogger:
         # Setup Bảng WandB
         wandb_table = wandb.Table(columns=["Image (w/ Bbox)", "Ground Truth", "Prediction", "Status"])
         correct_count = 0
-        
-        try:
-            # Khởi tạo model từ tạ vừa lưu để predict thẳng bằng file ảnh
-            eval_model = YOLO(trainer.last)
-        except Exception as e:
-            print(f"Bỏ qua Visual Logger ở epoch {trainer.epoch} vì chưa có file last.pt")
-            return
 
         for img_path in sample_paths:
-            # 1. Lấy chuỗi nhãn thật
             txt_path = img_path.replace("images", "labels").replace(".png", ".txt")
             true_label = self.decode_gt_string(txt_path)
             
-            # 2. Dự đoán
-            res = eval_model(img_path, verbose=False)[0]
+            # Gọi hàm an toàn lấy tọa độ xịn và ảnh gốc
+            det, img0 = run_safe_inference(trainer, img_path)
+            h0, w0 = img0.shape[:2]
             
-            # Khởi tạo lại list nhãn chuẩn YOLO (0-1) để feed cho BBoxMarker
             pseudo_yolo_labels = []
             pred_boxes_for_string = []
             
-            for box in res.boxes:
-                cls_id = int(box.cls[0])
-                nx, ny, nw, nh = box.xywhn[0].tolist() 
-                pseudo_yolo_labels.append(f"{cls_id} {nx:.6f} {ny:.6f} {nw:.6f} {nh:.6f}")
-                
-                # Tọa độ tâm pixel thực để sắp xếp chuỗi
-                x_center = float(box.xywh[0][0])
-                pred_boxes_for_string.append((x_center, cls_id))
-                
-            # Xếp chữ từ trái qua phải
+            if len(det):
+                for *xyxy, conf, cls_id in det:
+                    x1, y1, x2, y2 = [float(c) for c in xyxy]
+                    cls_id = int(cls_id)
+                    
+                    # Convert tọa độ pixel về hệ quy chiếu YOLO 0-1 để ném cho BBoxMarker
+                    x_center = (x1 + x2) / 2 / w0
+                    y_center = (y1 + y2) / 2 / h0
+                    norm_w = (x2 - x1) / w0
+                    norm_h = (y2 - y1) / h0
+                    
+                    pseudo_yolo_labels.append(f"{cls_id} {x_center:.6f} {y_center:.6f} {norm_w:.6f} {norm_h:.6f}")
+                    pred_boxes_for_string.append((float(x_center), cls_id))
+                    
             pred_boxes_for_string.sort(key=lambda item: item[0])
             pred_label = "".join([CHARSET[item[1]].upper() for item in pred_boxes_for_string])
             
@@ -123,18 +120,15 @@ class YoloVisualLogger:
             if is_correct: correct_count += 1
             status = "✅" if is_correct else "❌"
 
-            # 3. VẼ BOX LÊN ẢNH
-            img_bgr = res.orig_img.copy() 
-            marked_img_bgr = self.marker.draw_on_ram(img_bgr, pseudo_yolo_labels)
-            
-            # Chuyển BGR thành RGB để đưa lên WandB
+            # Vẽ và lưu lên WandB như cũ
+            marked_img_bgr = self.marker.draw_on_ram(img0, pseudo_yolo_labels)
             marked_img_rgb = cv2.cvtColor(marked_img_bgr, cv2.COLOR_BGR2RGB)
-
-            # 4. Lưu WandB
             wandb_table.add_data(wandb.Image(marked_img_rgb), true_label, pred_label, status)
 
-        # Đẩy Bảng lên WandB
         if wandb.run is not None:
             wandb.log({f"Visual_Inspection/Epoch_{trainer.epoch}": wandb_table}, step=trainer.epoch)
+            
+        # 💥 BẮT BUỘC: TRẢ VỀ MODE TRAIN LẦN NỮA CHO CHẮC CÚ
+        trainer.model.train()
         
         print(f"🎯 Trực quan hóa BBox: Đúng {correct_count}/{self.num_samples}. Đã đẩy lên mây!")

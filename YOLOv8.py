@@ -2,6 +2,8 @@ import sys
 from types import ModuleType
 import importlib.machinery
 
+from utils import run_safe_inference
+
 # 1. Tạo một Module rỗng giả lập torchaudio
 mock_torchaudio = ModuleType('torchaudio')
 
@@ -16,8 +18,9 @@ import numpy as np
 import evaluate
 from ultralytics.models.yolo.detect import DetectionTrainer
 from ultralytics.data.dataset import YOLODataset
-from ultralytics import YOLO
 from ultralytics.utils.instance import Instances
+from ultralytics.utils.ops import non_max_suppression, scale_boxes
+from ultralytics.data.augment import LetterBox
 from augment import CaptchaAugmenter # Import class nhiễu của cậu vào
 import wandb
 import os
@@ -51,79 +54,57 @@ def decode_yolo_txt_label(txt_path):
 # CUSTOM CALLBACK: CHỐT CHẶN TÍNH CER & EXACT MATCH CHO YOLO
 # ==============================================================================
 def on_fit_epoch_end(trainer):
-    """Hook này tự động chạy sau khi YOLO hoàn thành Validation của mỗi Epoch"""
-    # Tránh chạy ở epoch khởi tạo -1
-    if trainer.epoch < 0:
-        return
-        
-    # Sử dụng chính model đang train ở trạng thái hiện tại
-    current_model = trainer.model
+    if trainer.epoch < 0: return
     
-    # Lấy danh sách ảnh Validation để đánh giá chuỗi (Lấy khoảng 100-200 ảnh để chạy cho nhanh)
     val_images = [os.path.join(VAL_IMG_DIR, f) for f in os.listdir(VAL_IMG_DIR) if f.endswith('.png')]
-    
-    p_clean_list = []
-    l_clean_list = []
+    p_clean_list, l_clean_list = [], []
     exact_matches = 0
-    
-    # Ép model predict ngầm
-    results = trainer.validator(model=current_model) # Hoặc dùng hàm predict nhanh
-    
-    eval_model = YOLO(trainer.last) 
     
     print(f"\n[Custom Metrics] 📝 Đang tính toán CER & Exact Match cho Epoch {trainer.epoch}...")
     
     for img_path in val_images:
         txt_path = img_path.replace("images", "labels").replace(".png", ".txt")
         gt_string = decode_yolo_txt_label(txt_path)
-        if not gt_string: 
-            continue
+        if not gt_string: continue
             
-        # Dùng eval_model thay vì trainer.model
-        pred_res = eval_model(img_path, verbose=False)[0] 
+        # Gọi hàm an toàn!
+        det, _ = run_safe_inference(trainer, img_path)
         
-        pred_boxes = []
-        for box in pred_res.boxes:
-            x_center = float(box.xywh[0][0])
-            class_id = int(box.cls[0])
-            pred_boxes.append((x_center, class_id))
-            
-        # 3. Sắp xếp chữ đoán từ trái sang phải theo tọa độ X
-        pred_boxes.sort(key=lambda item: item[0])
-        pred_string = "".join([CHARSET[item[1]].upper() for item in pred_boxes])
+        pred_boxes_for_string = []
+        if len(det):
+            for *xyxy, conf, cls_id in det:
+                x_center = (xyxy[0] + xyxy[2]) / 2 # Lấy tâm trục X
+                pred_boxes_for_string.append((float(x_center), int(cls_id)))
+                
+        pred_boxes_for_string.sort(key=lambda item: item[0])
+        pred_string = "".join([CHARSET[item[1]].upper() for item in pred_boxes_for_string])
         
         p_clean_list.append(pred_string)
         l_clean_list.append(gt_string)
-        
-        if pred_string == gt_string:
-            exact_matches += 1
+        if pred_string == gt_string: exact_matches += 1
 
-    # 4. Tính toán điểm số cuối cùng cho chuỗi CAPTCHA
+    # Tính điểm và log WandB như cũ
     total_loss = sum(trainer.loss_items) if hasattr(trainer, 'loss_items') else 0
-    
-    # Lấy Learning Rate hiện tại từ Optimizer
     current_lr = trainer.optimizer.param_groups[0]['lr']
-    
-    # Lấy Gradient Norm (Dùng getattr để an toàn, tránh crash nếu thuộc tính chưa khởi tạo)
     gnorm = getattr(trainer, 'grad_norm', 0)
+    
     if len(l_clean_list) > 0:
         epoch_cer = cer_metric.compute(predictions=p_clean_list, references=l_clean_list)
         epoch_em = exact_matches / len(l_clean_list)
         
-        # 5. BẮN THẲNG LÊN WANDB DASHBOARD SONG SONG VỚI MAP CỦA YOLO!
         if wandb.run is not None:
             wandb.log({
-                # OCR Metrics
                 "metrics/captcha_cer": epoch_cer,
                 "metrics/captcha_exact_match": epoch_em,
-                
-                # Training Dynamics (3 đại lượng cậu cần)
                 "train/loss": total_loss,
                 "train/learning_rate": current_lr,
                 "train/grad_norm": gnorm
             }, step=trainer.epoch)
             
-        print(f"[Custom Metrics] 🎯 Kết quả Epoch {trainer.epoch} -> Captcha CER: {epoch_cer:.4f} | Exact Match: {epoch_em:.4f}")
+        print(f"[Custom Metrics] 🎯 Kết quả Epoch {trainer.epoch} -> CER: {epoch_cer:.4f} | EM: {epoch_em:.4f}")
+
+    # 💥 BẮT BUỘC: TRẢ MODEL VỀ MODE TRAIN ĐỂ GRAPH KHÔNG BỊ GÃY Ở EPOCH SAU
+    trainer.model.train()
 
 class CustomCaptchaDataset(YOLODataset):
     def __init__(self, *args, **kwargs):
@@ -139,11 +120,8 @@ class CustomCaptchaDataset(YOLODataset):
         
         # Nếu đang train thì lôi ra hành hạ
         if self.my_augmenter:
-            # 🛑 Lấy ảnh bằng key 'img' (Như anh em mình vừa fix lúc nãy)
             img_bgr = data['img'] 
             img_rgb = img_bgr[:, :, ::-1] 
-            
-            # 🛑 SỬA CHỖ NÀY: Móc tọa độ bboxes từ bên trong object 'instances' ra!
             bboxes = data['instances'].bboxes.tolist() 
             classes = data['cls'].flatten().tolist()
             
@@ -156,19 +134,12 @@ class CustomCaptchaDataset(YOLODataset):
                 # 1. Cập nhật lại ảnh và nhãn Class
                 data['img'] = aug_img_rgb[:, :, ::-1] 
                 data['cls'] = np.array(aug_classes, dtype=np.float32).reshape(-1, 1)
-                
-                # 2. 🛑 ĐÓNG GÓI LẠI BOX VÀO OBJECT 'INSTANCES'
-                # Đề phòng trường hợp nhiễu quá đà làm bay mất box -> list rỗng
                 if len(aug_bboxes) == 0:
                     aug_bboxes_np = np.zeros((0, 4), dtype=np.float32)
                 else:
                     aug_bboxes_np = np.array(aug_bboxes, dtype=np.float32)
-                
-                # 🛑 ĐÓNG GÓI LẠI BOX NHƯNG PHẢI KẾ THỪA CÁC THUỘC TÍNH RỖNG CỦA YOLO
                 orig_segments = data['instances'].segments
                 orig_keypoints = data['instances'].keypoints
-                
-                # Gán lại chuẩn form, nhét lại segments và keypoints cũ vào
                 data['instances'] = Instances(
                     bboxes=aug_bboxes_np, 
                     segments=orig_segments, 
@@ -214,6 +185,16 @@ class CustomTrainer(DetectionTrainer):
 if __name__ == "__main__":
     # Thay vì dùng lệnh `model = YOLO(...); model.train(...)` truyền thống,
     # Cậu gọi thẳng thằng CustomTrainer và ném cấu hình (overrides) cho nó!
+    wandb.init(
+        project="Captcha_YOLOv8",      # Tên Project trên Dashboard
+        name="YOLOv8_A100_Run1",       # Tên phiên chạy (cậu tự đặt cho ngầu)
+        config={                       # Lưu lại cấu hình để sau này dễ xem lại
+            "architecture": "YOLOv8n",
+            "imgsz": 320,
+            "batch_size": 256,
+            "epochs": 150
+        }
+    )
     visual_logger = YoloVisualLogger(val_dir=VAL_IMG_DIR, num_samples=10)
     trainer = CustomTrainer(overrides={
         "model": "yolov8n.pt",         # Load tạ gốc của YOLOv8n
