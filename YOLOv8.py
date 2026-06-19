@@ -1,9 +1,17 @@
 import sys
 from types import ModuleType
+import importlib.machinery
 
-# 💥 THỦ THUẬT HACK MODULE: Tạo một object rỗng đánh lừa Python 
-# rằng torchaudio đã được load thành công, cấm nó mò vào file .so bị lỗi nữa.
-sys.modules['torchaudio'] = ModuleType('torchaudio')
+# 1. Tạo một Module rỗng giả lập torchaudio
+mock_torchaudio = ModuleType('torchaudio')
+
+# 2. Đắp thêm __spec__ giả để lừa importlib.util.find_spec
+mock_torchaudio.__spec__ = importlib.machinery.ModuleSpec(
+    name='torchaudio', 
+    loader=None
+)
+# 3. Kính thưa Python, đây là module torchaudio "xịn"
+sys.modules['torchaudio'] = mock_torchaudio
 import numpy as np
 import evaluate
 from ultralytics.models.yolo.detect import DetectionTrainer
