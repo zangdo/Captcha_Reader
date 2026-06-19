@@ -77,14 +77,18 @@ class DatasetBuilder:
             f.write("\n".join(labels))
     def build_yolo_labels(self):
         """
-        Quét lại toàn bộ file .txt vừa sinh ra để:
-        1. Xóa đuôi .0 của Class ID (ép về int).
-        2. Gộp class chữ thường (ID 36-61) lùi về class chữ hoa (ID 10-35).
+        Quét lại toàn bộ file .txt để ép chữ thường về chữ hoa.
+        Sử dụng ánh xạ string tuyệt đối an toàn.
         """
-        print("\n🔧 Đang chuẩn hóa nhãn YOLO (Ép kiểu int và gộp chữ thường -> hoa)...")
+        print("\n🔧 Đang chuẩn hóa nhãn YOLO (Ép chữ thường -> hoa)...")
         
-        for label_dir in [TRAIN_LBL_DIR, VAL_LBL_DIR]:
-            # Bỏ qua nếu thư mục không tồn tại
+        # Cái VOCAB mà cậu dùng để gen data
+        GEN_VOCAB = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz"
+        
+        # Cái VOCAB dùng để train YOLO (Chỉ lấy tới Z)
+        TARGET_CHARSET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ" 
+        
+        for label_dir in [TRAIN_LBL_YOLO_DIR, VAL_LBL_YOLO_DIR]:
             if not os.path.exists(label_dir):
                 continue
                 
@@ -99,15 +103,19 @@ class DatasetBuilder:
                 for line in lines:
                     parts = line.strip().split()
                     if len(parts) == 5:
-                        # 1. Ép float -> int
-                        class_id = int(float(parts[0]))
+                        old_id = int(float(parts[0]))
                         
-                        # 2. Gộp nhãn (a-z lùi về A-Z)
-                        if 36 <= class_id <= 61:
-                            class_id -= 26
-                            
-                        # Ghi lại chuỗi chuẩn
-                        new_line = f"{class_id} {parts[1]} {parts[2]} {parts[3]} {parts[4]}\n"
+                        # 1. Trích xuất ký tự thật sự từ ID cũ
+                        actual_char = GEN_VOCAB[old_id]
+                        
+                        # 2. Ép nó thành chữ HOA
+                        upper_char = actual_char.upper()
+                        
+                        # 3. Tìm lại ID mới trong TARGET_CHARSET
+                        new_id = TARGET_CHARSET.index(upper_char)
+                        
+                        # Ghi lại dòng nhãn mới
+                        new_line = f"{new_id} {parts[1]} {parts[2]} {parts[3]} {parts[4]}\n"
                         new_lines.append(new_line)
                         
                 # Ghi đè file
@@ -145,5 +153,5 @@ class DatasetBuilder:
 # ==============================================================================
 if __name__ == "__main__":
     builder = DatasetBuilder()
-    #builder.build()
+    builder.build()
     builder.build_yolo_labels()
