@@ -139,7 +139,7 @@ class CustomCaptchaDataset(YOLODataset):
         # Nếu đang train thì lôi ra hành hạ
         if self.my_augmenter:
             # data['im'] là numpy array hệ BGR của OpenCV
-            img_bgr = data['im']
+            img_bgr = data['img']
             # Chuyển BGR -> RGB để ném cho hàm của cậu (như Albumentations hay PIL)
             img_rgb = img_bgr[:, :, ::-1] 
             
@@ -154,7 +154,7 @@ class CustomCaptchaDataset(YOLODataset):
                 )
                 
                 # Cập nhật lại vào dict của YOLO
-                data['im'] = aug_img_rgb[:, :, ::-1] # Trả lại hệ BGR cho YOLO
+                data['img'] = aug_img_rgb[:, :, ::-1] # Trả lại hệ BGR cho YOLO
                 data['bboxes'] = np.array(aug_bboxes, dtype=np.float32)
                 data['cls'] = np.array(aug_classes, dtype=np.float32).reshape(-1, 1)
             except Exception as e:
