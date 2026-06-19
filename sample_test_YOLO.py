@@ -6,7 +6,6 @@ import torch
 import wandb
 from ultralytics import YOLO
 from config import CHARSET, VOCAB
-from utils import run_safe_inference
 
 # ==============================================================================
 # 1. CLASS VẼ BOX CỦA TÚ (Giữ nguyên tinh hoa, chỉ sửa tên biến xíu cho khớp)

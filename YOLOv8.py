@@ -1,11 +1,7 @@
 import sys
 from types import ModuleType
 import importlib.machinery
-
 import torch
-
-from utils import run_safe_inference
-
 # 1. Tạo một Module rỗng giả lập torchaudio
 mock_torchaudio = ModuleType('torchaudio')
 
