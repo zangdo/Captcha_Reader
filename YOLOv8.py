@@ -220,7 +220,7 @@ if __name__ == "__main__":
         "data": "dataset.yaml",        # File config trỏ đến thư mục train/val
         "epochs": 150,
         "imgsz": 320,
-        "batch": 32,
+        "batch": 256,
         "patience": 30,
         "project": "Captcha_YOLOv8",
         
