@@ -1,5 +1,5 @@
 import numpy as np
-from sympy import evaluate
+import evaluate
 from ultralytics.models.yolo.detect import DetectionTrainer
 from ultralytics.data.dataset import YOLODataset
 from ultralytics import YOLO
