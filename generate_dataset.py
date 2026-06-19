@@ -5,7 +5,7 @@ from PIL import Image
 from config import *
 from gen_image_label import CaptchaGenerator
 from augment import CaptchaAugmenter 
-
+from config import CHARSET, TRAIN_LBL_DIR, VAL_LBL_DIR, TRAIN_LBL_YOLO_DIR, VAL_LBL_YOLO_DIR, VOCAB
 class DatasetBuilder:
     """Class chịu trách nhiệm thao tác I/O: Tạo folder, chạy vòng lặp và lưu file"""
     
@@ -75,52 +75,50 @@ class DatasetBuilder:
         # Lưu file nhãn
         with open(os.path.join(out_lbl_dir, txt_name), "w") as f:
             f.write("\n".join(labels))
-    def build_yolo_labels(self):
-        """
-        Quét lại toàn bộ file .txt để ép chữ thường về chữ hoa.
-        Sử dụng ánh xạ string tuyệt đối an toàn.
-        """
-        print("\n🔧 Đang chuẩn hóa nhãn YOLO (Ép chữ thường -> hoa)...")
+    def build_yolo_labels(self,labels_dir, ocr_dir):
+        print(f"\n🔄 Đang convert nhãn gốc từ {os.path.basename(ocr_dir)} sang YOLO chuẩn...")
         
-        # Cái VOCAB mà cậu dùng để gen data
-        GEN_VOCAB = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz"
-        
-        # Cái VOCAB dùng để train YOLO (Chỉ lấy tới Z)
-        TARGET_CHARSET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ" 
-        
-        for label_dir in [TRAIN_LBL_YOLO_DIR, VAL_LBL_YOLO_DIR]:
-            if not os.path.exists(label_dir):
-                continue
-                
-            txt_files = [f for f in os.listdir(label_dir) if f.endswith('.txt')]
+        # Kiểm tra thư mục gốc (nơi chứa kho báu)
+        if not os.path.exists(ocr_dir):
+            print(f"⚠️ Không tìm thấy thư mục gốc: {ocr_dir}")
+            return
             
-            for filename in tqdm(txt_files, desc=f"Xử lý {os.path.basename(label_dir)}", unit="file"):
-                filepath = os.path.join(label_dir, filename)
-                with open(filepath, 'r') as f:
-                    lines = f.readlines()
+        # Tạo thư mục đích (Tạo thoải mái vì mình không lấy data ở đây)
+        if not os.path.exists(labels_dir):
+            print(f"📁 Đang tạo thư mục đích tại: {os.path.abspath(labels_dir)}")
+            os.makedirs(labels_dir, exist_ok=True)
+            
+        # 💥 QUÉT FILE TỪ THƯ MỰC OCR_DIR (Chỗ này lúc nãy cậu để nhầm thành labels_dir)
+        txt_files = [f for f in os.listdir(ocr_dir) if f.endswith('.txt')]
+        
+        for filename in tqdm(txt_files, desc=f"Xử lý file", unit="file"):
+            ocr_path = os.path.join(ocr_dir, filename)      # File gốc để ĐỌC
+            yolo_path = os.path.join(labels_dir, filename)  # File mới để GHI
+            
+            with open(ocr_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                
+            new_lines = []
+            for line in lines:
+                parts = line.strip().split()
+                if len(parts) == 5:
+                    old_id = int(float(parts[0]))
                     
-                new_lines = []
-                for line in lines:
-                    parts = line.strip().split()
-                    if len(parts) == 5:
-                        old_id = int(float(parts[0]))
+                    # Trích xuất chữ thật và ép hoa
+                    actual_char = VOCAB[old_id]
+                    upper_char = actual_char.upper()
+                    
+                    # Ánh xạ sang bộ 32 ký tự
+                    if upper_char in CHARSET:
+                        new_id = CHARSET.index(upper_char)
                         
-                        # 1. Trích xuất ký tự thật sự từ ID cũ
-                        actual_char = GEN_VOCAB[old_id]
-                        
-                        # 2. Ép nó thành chữ HOA
-                        upper_char = actual_char.upper()
-                        
-                        # 3. Tìm lại ID mới trong TARGET_CHARSET
-                        new_id = TARGET_CHARSET.index(upper_char)
-                        
-                        # Ghi lại dòng nhãn mới
+                        # Bê nguyên xi 4 cái tọa độ (parts[1] đến parts[4]) ném vào
                         new_line = f"{new_id} {parts[1]} {parts[2]} {parts[3]} {parts[4]}\n"
                         new_lines.append(new_line)
                         
-                # Ghi đè file
-                with open(filepath, 'w') as f:
-                    f.writelines(new_lines)
+            # Ghi đè vào thư mục labels_dir
+            with open(yolo_path, 'w', encoding='utf-8') as f:
+                f.writelines(new_lines)
     def build(self):
         """Thực thi toàn bộ quy trình xây dựng Dataset"""
         num_train = int(NUM_IMAGES * TRAIN_RATIO)
@@ -153,5 +151,6 @@ class DatasetBuilder:
 # ==============================================================================
 if __name__ == "__main__":
     builder = DatasetBuilder()
-    builder.build()
-    builder.build_yolo_labels()
+    #builder.build()
+    builder.build_yolo_labels(TRAIN_LBL_YOLO_DIR,TRAIN_LBL_DIR)
+    builder.build_yolo_labels(VAL_LBL_YOLO_DIR,VAL_LBL_DIR)

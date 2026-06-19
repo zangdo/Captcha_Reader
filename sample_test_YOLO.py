@@ -84,6 +84,15 @@ class YoloVisualLogger:
         wandb_table = wandb.Table(columns=["Image (w/ Bbox)", "Ground Truth", "Prediction", "Status"])
         correct_count = 0
         
+        # 💥 THIẾT LẬP LƯU GOOGLE DRIVE MỖI 5 EPOCH
+        save_to_drive = (trainer.epoch % 5 == 0)
+        if save_to_drive:
+            # Đường dẫn tổng chứa kết quả trên Drive (Cậu có thể đổi tên folder YOLO_Results tùy ý)
+            drive_base_dir = "/content/drive/MyDrive/YOLO_Results"
+            epoch_drive_dir = os.path.join(drive_base_dir, f"Epoch_{trainer.epoch}")
+            os.makedirs(epoch_drive_dir, exist_ok=True)
+            print(f"📁 Sẽ backup {self.num_samples} ảnh trực tiếp vào Drive tại: {epoch_drive_dir}")
+
         # 💥 KHÓA BẢO VỆ GRADIENT CHO VISUAL LOGGER
         prev_grad_state = torch.is_grad_enabled()
         
@@ -91,7 +100,7 @@ class YoloVisualLogger:
             with torch.no_grad():
                 eval_model = YOLO(trainer.last)
                 
-                for img_path in sample_paths:
+                for idx, img_path in enumerate(sample_paths):
                     txt_path = img_path.replace("images", "labels").replace(".png", ".txt")
                     true_label = self.decode_gt_string(txt_path)
                     
@@ -119,12 +128,24 @@ class YoloVisualLogger:
                     marked_img_bgr = self.marker.draw_on_ram(img_bgr, pseudo_yolo_labels)
                     marked_img_rgb = cv2.cvtColor(marked_img_bgr, cv2.COLOR_BGR2RGB)
 
+                    # Đẩy lên WandB
                     wandb_table.add_data(wandb.Image(marked_img_rgb), true_label, pred_label, status)
+
+                    # 💥 LƯU ẢNH VÀO GOOGLE DRIVE
+                    if save_to_drive:
+                        # Đặt tên file cực trực quan: VD: 0_True_ABCD_Pred_ABCE_❌.png
+                        # Bỏ icon ✅/❌ vào tên file để lúc xem list trên Drive lướt cho nhanh
+                        clean_status = "Pass" if is_correct else "Fail"
+                        filename = f"{idx}_True_{true_label}_Pred_{pred_label}_{clean_status}.png"
+                        save_path = os.path.join(epoch_drive_dir, filename)
+                        
+                        # Dùng marked_img_bgr vì hàm cv2.imwrite yêu cầu định dạng BGR
+                        cv2.imwrite(save_path, marked_img_bgr)
 
                 if wandb.run is not None:
                     wandb.log({f"Visual_Inspection/Epoch_{trainer.epoch}": wandb_table}, step=trainer.epoch)
                 
-                print(f"🎯 Trực quan hóa BBox: Đúng {correct_count}/{self.num_samples}. Đã đẩy lên mây!")
+                print(f"🎯 Trực quan hóa BBox: Đúng {correct_count}/{self.num_samples}. Đã đẩy lên mây" + (" và lưu Drive!" if save_to_drive else "!"))
                 
         finally:
             # 💥 TRẢ LẠI HIỆN TRƯỜNG
