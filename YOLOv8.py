@@ -2,6 +2,8 @@ import sys
 from types import ModuleType
 import importlib.machinery
 
+import torch
+
 from utils import run_safe_inference
 
 # 1. Tạo một Module rỗng giả lập torchaudio
@@ -19,8 +21,7 @@ import evaluate
 from ultralytics.models.yolo.detect import DetectionTrainer
 from ultralytics.data.dataset import YOLODataset
 from ultralytics.utils.instance import Instances
-from ultralytics.utils.ops import non_max_suppression, scale_boxes
-from ultralytics.data.augment import LetterBox
+from ultralytics import YOLO
 from augment import CaptchaAugmenter # Import class nhiễu của cậu vào
 import wandb
 import os
@@ -56,55 +57,65 @@ def decode_yolo_txt_label(txt_path):
 def on_fit_epoch_end(trainer):
     if trainer.epoch < 0: return
     
-    val_images = [os.path.join(VAL_IMG_DIR, f) for f in os.listdir(VAL_IMG_DIR) if f.endswith('.png')]
-    p_clean_list, l_clean_list = [], []
-    exact_matches = 0
+    # 💥 BƯỚC 1: LƯU LẠI TRẠNG THÁI GRADIENT CỦA EPOCH HIỆN TẠI
+    prev_grad_state = torch.is_grad_enabled()
     
-    print(f"\n[Custom Metrics] 📝 Đang tính toán CER & Exact Match cho Epoch {trainer.epoch}...")
-    
-    for img_path in val_images:
-        txt_path = img_path.replace("images", "labels").replace(".png", ".txt")
-        gt_string = decode_yolo_txt_label(txt_path)
-        if not gt_string: continue
+    try:
+        # 2. ÉP KHU VỰC NÀY VÀO VÙNG CÁCH LY (Không sinh đạo hàm)
+        with torch.no_grad():
+            # Khởi tạo an toàn, không sợ YOLO làm loạn Global State nữa
+            eval_model = YOLO(trainer.last)
             
-        # Gọi hàm an toàn!
-        det, _ = run_safe_inference(trainer, img_path)
-        
-        pred_boxes_for_string = []
-        if len(det):
-            for *xyxy, conf, cls_id in det:
-                x_center = (xyxy[0] + xyxy[2]) / 2 # Lấy tâm trục X
-                pred_boxes_for_string.append((float(x_center), int(cls_id)))
+            val_images = [os.path.join(VAL_IMG_DIR, f) for f in os.listdir(VAL_IMG_DIR) if f.endswith('.png')]
+            p_clean_list, l_clean_list = [], []
+            exact_matches = 0
+            
+            print(f"\n[Custom Metrics] 📝 Đang tính toán CER & Exact Match cho Epoch {trainer.epoch}...")
+            
+            for img_path in val_images:
+                txt_path = img_path.replace("images", "labels").replace(".png", ".txt")
+                gt_string = decode_yolo_txt_label(txt_path)
+                if not gt_string: continue
+                    
+                # Gọi thẳng hàm predict bậc cao, không cần quan tâm NMS hay Scale Box nữa
+                res = eval_model(img_path, verbose=False)[0]
                 
-        pred_boxes_for_string.sort(key=lambda item: item[0])
-        pred_string = "".join([CHARSET[item[1]].upper() for item in pred_boxes_for_string])
-        
-        p_clean_list.append(pred_string)
-        l_clean_list.append(gt_string)
-        if pred_string == gt_string: exact_matches += 1
+                pred_boxes = []
+                for box in res.boxes:
+                    x_center = float(box.xywh[0][0])
+                    class_id = int(box.cls[0])
+                    pred_boxes.append((x_center, class_id))
+                    
+                pred_boxes.sort(key=lambda item: item[0])
+                pred_string = "".join([CHARSET[item[1]].upper() for item in pred_boxes])
+                
+                p_clean_list.append(pred_string)
+                l_clean_list.append(gt_string)
+                if pred_string == gt_string: exact_matches += 1
 
-    # Tính điểm và log WandB như cũ
-    total_loss = sum(trainer.loss_items) if hasattr(trainer, 'loss_items') else 0
-    current_lr = trainer.optimizer.param_groups[0]['lr']
-    gnorm = getattr(trainer, 'grad_norm', 0)
-    
-    if len(l_clean_list) > 0:
-        epoch_cer = cer_metric.compute(predictions=p_clean_list, references=l_clean_list)
-        epoch_em = exact_matches / len(l_clean_list)
-        
-        if wandb.run is not None:
-            wandb.log({
-                "metrics/captcha_cer": epoch_cer,
-                "metrics/captcha_exact_match": epoch_em,
-                "train/loss": total_loss,
-                "train/learning_rate": current_lr,
-                "train/grad_norm": gnorm
-            }, step=trainer.epoch)
+            total_loss = sum(trainer.loss_items) if hasattr(trainer, 'loss_items') else 0
+            current_lr = trainer.optimizer.param_groups[0]['lr']
+            gnorm = getattr(trainer, 'grad_norm', 0)
             
-        print(f"[Custom Metrics] 🎯 Kết quả Epoch {trainer.epoch} -> CER: {epoch_cer:.4f} | EM: {epoch_em:.4f}")
+            if len(l_clean_list) > 0:
+                epoch_cer = cer_metric.compute(predictions=p_clean_list, references=l_clean_list)
+                epoch_em = exact_matches / len(l_clean_list)
+                
+                if wandb.run is not None:
+                    wandb.log({
+                        "metrics/captcha_cer": epoch_cer,
+                        "metrics/captcha_exact_match": epoch_em,
+                        "train/loss": total_loss,
+                        "train/learning_rate": current_lr,
+                        "train/grad_norm": gnorm
+                    }, step=trainer.epoch)
+                    
+                print(f"[Custom Metrics] 🎯 Kết quả Epoch {trainer.epoch} -> CER: {epoch_cer:.4f} | EM: {epoch_em:.4f}")
 
-    # 💥 BẮT BUỘC: TRẢ MODEL VỀ MODE TRAIN ĐỂ GRAPH KHÔNG BỊ GÃY Ở EPOCH SAU
-    trainer.model.train()
+    finally:
+        # 3. 💥 BƯỚC CỨU MẠNG: Dọn dẹp chiến trường và hoàn trả nguyên vẹn trạng thái gốc cho PyTorch
+        torch.set_grad_enabled(prev_grad_state)
+        trainer.model.train()
 
 class CustomCaptchaDataset(YOLODataset):
     def __init__(self, *args, **kwargs):

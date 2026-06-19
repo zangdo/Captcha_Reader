@@ -2,6 +2,7 @@ import os
 import random
 import cv2
 import numpy as np
+import torch
 import wandb
 from ultralytics import YOLO
 from config import CHARSET, VOCAB
@@ -73,62 +74,60 @@ class YoloVisualLogger:
         return "".join([CHARSET[item[1]].upper() for item in parsed_boxes])
 
     def on_fit_epoch_end(self, trainer):
-        """Hàm này sẽ được bắn vào YOLO sau mỗi epoch"""
-        if trainer.epoch < 0:
-            return
-            
+        if trainer.epoch < 0: return
+        
         print(f"\n[Visual Callback] 📸 Đang chụp {self.num_samples} ảnh nghiệm thu đẩy lên WandB cho Epoch {trainer.epoch}...")
         
-        # Bốc ngẫu nhiên N ảnh từ tập Val
         all_images = [os.path.join(self.val_dir, f) for f in os.listdir(self.val_dir) if f.endswith('.png')]
         if not all_images: return
         sample_paths = random.sample(all_images, min(self.num_samples, len(all_images)))
         
-        # Setup Bảng WandB
         wandb_table = wandb.Table(columns=["Image (w/ Bbox)", "Ground Truth", "Prediction", "Status"])
         correct_count = 0
-
-        for img_path in sample_paths:
-            txt_path = img_path.replace("images", "labels").replace(".png", ".txt")
-            true_label = self.decode_gt_string(txt_path)
-            
-            # Gọi hàm an toàn lấy tọa độ xịn và ảnh gốc
-            det, img0 = run_safe_inference(trainer, img_path)
-            h0, w0 = img0.shape[:2]
-            
-            pseudo_yolo_labels = []
-            pred_boxes_for_string = []
-            
-            if len(det):
-                for *xyxy, conf, cls_id in det:
-                    x1, y1, x2, y2 = [float(c) for c in xyxy]
-                    cls_id = int(cls_id)
-                    
-                    # Convert tọa độ pixel về hệ quy chiếu YOLO 0-1 để ném cho BBoxMarker
-                    x_center = (x1 + x2) / 2 / w0
-                    y_center = (y1 + y2) / 2 / h0
-                    norm_w = (x2 - x1) / w0
-                    norm_h = (y2 - y1) / h0
-                    
-                    pseudo_yolo_labels.append(f"{cls_id} {x_center:.6f} {y_center:.6f} {norm_w:.6f} {norm_h:.6f}")
-                    pred_boxes_for_string.append((float(x_center), cls_id))
-                    
-            pred_boxes_for_string.sort(key=lambda item: item[0])
-            pred_label = "".join([CHARSET[item[1]].upper() for item in pred_boxes_for_string])
-            
-            is_correct = (pred_label == true_label)
-            if is_correct: correct_count += 1
-            status = "✅" if is_correct else "❌"
-
-            # Vẽ và lưu lên WandB như cũ
-            marked_img_bgr = self.marker.draw_on_ram(img0, pseudo_yolo_labels)
-            marked_img_rgb = cv2.cvtColor(marked_img_bgr, cv2.COLOR_BGR2RGB)
-            wandb_table.add_data(wandb.Image(marked_img_rgb), true_label, pred_label, status)
-
-        if wandb.run is not None:
-            wandb.log({f"Visual_Inspection/Epoch_{trainer.epoch}": wandb_table}, step=trainer.epoch)
-            
-        # 💥 BẮT BUỘC: TRẢ VỀ MODE TRAIN LẦN NỮA CHO CHẮC CÚ
-        trainer.model.train()
         
-        print(f"🎯 Trực quan hóa BBox: Đúng {correct_count}/{self.num_samples}. Đã đẩy lên mây!")
+        # 💥 KHÓA BẢO VỆ GRADIENT CHO VISUAL LOGGER
+        prev_grad_state = torch.is_grad_enabled()
+        
+        try:
+            with torch.no_grad():
+                eval_model = YOLO(trainer.last)
+                
+                for img_path in sample_paths:
+                    txt_path = img_path.replace("images", "labels").replace(".png", ".txt")
+                    true_label = self.decode_gt_string(txt_path)
+                    
+                    res = eval_model(img_path, verbose=False)[0]
+                    
+                    pseudo_yolo_labels = []
+                    pred_boxes_for_string = []
+                    
+                    for box in res.boxes:
+                        cls_id = int(box.cls[0])
+                        nx, ny, nw, nh = box.xywhn[0].tolist() 
+                        pseudo_yolo_labels.append(f"{cls_id} {nx:.6f} {ny:.6f} {nw:.6f} {nh:.6f}")
+                        
+                        x_center = float(box.xywh[0][0])
+                        pred_boxes_for_string.append((x_center, cls_id))
+                        
+                    pred_boxes_for_string.sort(key=lambda item: item[0])
+                    pred_label = "".join([CHARSET[item[1]].upper() for item in pred_boxes_for_string])
+                    
+                    is_correct = (pred_label == true_label)
+                    if is_correct: correct_count += 1
+                    status = "✅" if is_correct else "❌"
+
+                    img_bgr = res.orig_img.copy() 
+                    marked_img_bgr = self.marker.draw_on_ram(img_bgr, pseudo_yolo_labels)
+                    marked_img_rgb = cv2.cvtColor(marked_img_bgr, cv2.COLOR_BGR2RGB)
+
+                    wandb_table.add_data(wandb.Image(marked_img_rgb), true_label, pred_label, status)
+
+                if wandb.run is not None:
+                    wandb.log({f"Visual_Inspection/Epoch_{trainer.epoch}": wandb_table}, step=trainer.epoch)
+                
+                print(f"🎯 Trực quan hóa BBox: Đúng {correct_count}/{self.num_samples}. Đã đẩy lên mây!")
+                
+        finally:
+            # 💥 TRẢ LẠI HIỆN TRƯỜNG
+            torch.set_grad_enabled(prev_grad_state)
+            trainer.model.train()
