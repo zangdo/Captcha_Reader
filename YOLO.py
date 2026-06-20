@@ -96,11 +96,14 @@ def on_fit_epoch_end(trainer):
             if len(l_clean_list) > 0:
                 epoch_cer = cer_metric.compute(predictions=p_clean_list, references=l_clean_list)
                 epoch_em = exact_matches / len(l_clean_list)
-                
+                map50 = trainer.metrics.get('metrics/mAP50(B)', 0.0) 
+                map50_95 = trainer.metrics.get('metrics/mAP50-95(B)', 0.0)
                 if wandb.run is not None:
                     wandb.log({
                         "metrics/captcha_cer": epoch_cer,
                         "metrics/captcha_exact_match": epoch_em,
+                        "metrics/mAP50": map50,            # Bắn mAP50 lên
+                        "metrics/mAP50_95": map50_95,      # Bắn mAP50-95 lên
                         "train/loss": total_loss,
                         "train/learning_rate": current_lr,
                         "train/grad_norm": gnorm
