@@ -193,10 +193,10 @@ if __name__ == "__main__":
     # Thay vì dùng lệnh `model = YOLO(...); model.train(...)` truyền thống,
     # Cậu gọi thẳng thằng CustomTrainer và ném cấu hình (overrides) cho nó!
     wandb.init(
-        project="Captcha_YOLOv8",      # Tên Project trên Dashboard
-        name="YOLOv8_A100_Run1",       # Tên phiên chạy (cậu tự đặt cho ngầu)
+        project="Captcha_YOLOv11x",      # Tên Project trên Dashboard
+        name="YOLOv11x_A100_Run1",       # Tên phiên chạy (cậu tự đặt cho ngầu)
         config={                       # Lưu lại cấu hình để sau này dễ xem lại
-            "architecture": "YOLOv8n",
+            "architecture": "YOLOv11x",
             "imgsz": 320,
             "batch_size": 256,
             "epochs": 150
@@ -204,13 +204,13 @@ if __name__ == "__main__":
     )
     visual_logger = YoloVisualLogger(val_dir=VAL_IMG_DIR, num_samples=10)
     trainer = CustomTrainer(overrides={
-        "model": "yolov8n.pt",         # Load tạ gốc của YOLOv8n
+        "model": "yolov11x.pt",         # Load tạ gốc của YOLOv8n
         "data": "dataset.yaml",        # File config trỏ đến thư mục train/val
         "epochs": 150,
         "imgsz": 320,
         "batch": 256,
         "patience": 30,
-        "project": "Captcha_YOLOv8",
+        "project": "Captcha_YOLOv11x",
         
         # CHỐT AN TOÀN: Vẫn phải tắt đống augment phá game mặc định của YOLO
         "mosaic": 0.0,
