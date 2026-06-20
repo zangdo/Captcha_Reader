@@ -201,17 +201,17 @@ if __name__ == "__main__":
         config={                       # Lưu lại cấu hình để sau này dễ xem lại
             "architecture": "YOLOv11x",
             "imgsz": 320,
-            "batch_size": 256,
+            "batch_size": 128,
             "epochs": 150
         }
     )
     visual_logger = YoloVisualLogger(val_dir=VAL_IMG_DIR, num_samples=10)
     trainer = CustomTrainer(overrides={
-        "model": "yolov11x.pt",         # Load tạ gốc của YOLOv8n
+        "model": "yolo11x.pt",         # Load tạ gốc của YOLOv8n
         "data": "dataset.yaml",        # File config trỏ đến thư mục train/val
         "epochs": 150,
         "imgsz": 320,
-        "batch": 256,
+        "batch": 128,
         "patience": 30,
         "project": "Captcha_YOLOv11x",
         
