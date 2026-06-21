@@ -200,7 +200,7 @@ if __name__ == "__main__":
     # Dùng Seq2SeqTrainer thay vì Trainer thường
     trainer = Seq2SeqTrainer(
         model=model,
-        tokenizer=processor.image_processor, # Bắt buộc truyền tokenizer vào đây
+        processing_class=processor, # Bắt buộc truyền tokenizer vào đây
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
