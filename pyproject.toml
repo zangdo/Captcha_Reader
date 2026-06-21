@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "albumentations>=2.0.8",
     "evaluate>=0.4.6",
+    "gradio>=6.19.0",
     "jiwer>=4.0.0",
     "keras>=3.14.1",
     "matplotlib>=3.10.9",
@@ -15,5 +16,6 @@ dependencies = [
     "tensorflow>=2.21.0",
     "tqdm>=4.67.3",
     "transformers>=5.12.1",
+    "ultralytics>=8.4.72",
     "wandb>=0.27.2",
 ]
