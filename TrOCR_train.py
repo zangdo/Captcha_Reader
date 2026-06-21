@@ -152,12 +152,14 @@ if __name__ == "__main__":
     model.config.vocab_size = model.config.decoder.vocab_size
 
     # Các thông số chuyên dụng để sinh chuỗi (Generation)
-    model.config.eos_token_id = processor.tokenizer.sep_token_id
-    model.config.max_length = 12 
-    model.config.early_stopping = True
-    model.config.no_repeat_ngram_size = 3
-    model.config.length_penalty = 2.0
-    model.config.num_beams = 4
+    model.generation_config.decoder_start_token_id = processor.tokenizer.cls_token_id
+    model.generation_config.pad_token_id = processor.tokenizer.pad_token_id
+    model.generation_config.eos_token_id = processor.tokenizer.sep_token_id
+    model.generation_config.max_length = 12 
+    model.generation_config.early_stopping = True
+    model.generation_config.no_repeat_ngram_size = 3
+    model.generation_config.length_penalty = 2.0
+    model.generation_config.num_beams = 4
 
     print("📦 Đang chuẩn bị Dataset...")
     aug_module = CaptchaAugmenter()
