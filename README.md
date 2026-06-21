@@ -18,3 +18,5 @@ Online Training on Google Collab:
 folowing the Captcha_Reader.ipynb
 
 To create a new dataset ,you just need to modify the metadata of dataset at config.py then run you can run sample.py to watch some images and run generate_dataset.py to generate captcha_dataset
+
+after trainning you can test 3 models with some real captcha images at folder real_captcha/
