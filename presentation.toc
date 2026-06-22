@@ -1,0 +1,6 @@
+\babel@toc {vietnamese}{}\relax 
+\beamer@sectionintoc {1}{Giới thiệu}{4}{0}{1}
+\beamer@sectionintoc {2}{Kiến trúc \& Dữ liệu}{6}{0}{2}
+\beamer@sectionintoc {3}{Ba mô hình AI}{12}{0}{3}
+\beamer@sectionintoc {4}{Huấn luyện \& Đánh giá}{15}{0}{4}
+\beamer@sectionintoc {5}{Kết luận}{19}{0}{5}

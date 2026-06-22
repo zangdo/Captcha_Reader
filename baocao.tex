@@ -1,0 +1,783 @@
+% ============================================================
+%  BÁO CÁO CHI TIẾT — CAPTCHA Reader VLM
+%  Biên dịch: pdflatex baocao.tex (chạy 2-3 lần)
+% ============================================================
+
+\documentclass[a4paper,12pt]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[vietnamese]{babel}
+\usepackage{geometry}
+\geometry{left=3cm,right=2cm,top=2.5cm,bottom=2.5cm}
+
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{fancyhdr}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+% --- Listing style ---
+\lstdefinestyle{pythonstyle}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{teal},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  numbersep=8pt,
+  backgroundcolor=\color{gray!5},
+  frame=single,
+  rulecolor=\color{gray!40},
+  breaklines=true,
+  tabsize=4,
+  showstringspaces=false,
+  literate={á}{{\'a}}1 {à}{{\`a}}1 {ả}{{\h{a}}}1 {ã}{{\~a}}1 {ạ}{{\d{a}}}1
+           {ă}{{\u{a}}}1 {ắ}{{\'\u{a}}}1 {ằ}{{\`\u{a}}}1 {ẳ}{{\h\u{a}}}1
+           {ấ}{{\'a}}1 {ầ}{{\`a}}1 {ẩ}{{\h{a}}}1 {ậ}{{\d{a}}}1
+           {é}{{\'e}}1 {è}{{\`e}}1 {ẻ}{{\h{e}}}1 {ẽ}{{\~e}}1 {ẹ}{{\d{e}}}1
+           {ê}{{\^e}}1 {ế}{{\'\^e}}1 {ề}{{\`\^e}}1 {ể}{{\h\^e}}1 {ệ}{{\d\^e}}1
+           {í}{{\'i}}1 {ì}{{\`i}}1 {ỉ}{{\h{i}}}1 {ĩ}{{\~i}}1 {ị}{{\d{i}}}1
+           {ó}{{\'o}}1 {ò}{{\`o}}1 {ỏ}{{\h{o}}}1 {õ}{{\~o}}1 {ọ}{{\d{o}}}1
+           {ô}{{\^o}}1 {ố}{{\'\^o}}1 {ồ}{{\`\^o}}1 {ổ}{{\h\^o}}1 {ộ}{{\d\^o}}1
+           {ơ}{{\ohorn}}1 {ớ}{{\'\ohorn}}1 {ờ}{{\`\ohorn}}1 {ở}{{\h\ohorn}}1
+           {ú}{{\'u}}1 {ù}{{\`u}}1 {ủ}{{\h{u}}}1 {ũ}{{\~u}}1 {ụ}{{\d{u}}}1
+           {ư}{{\uhorn}}1 {ứ}{{\'\uhorn}}1 {ừ}{{\`\uhorn}}1 {ử}{{\h\uhorn}}1
+           {ý}{{\'y}}1 {ỳ}{{\`y}}1 {ỷ}{{\h{y}}}1 {ỹ}{{\~y}}1 {ỵ}{{\d{y}}}1
+           {đ}{{\dj}}1
+}
+\lstset{style=pythonstyle}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small CAPTCHA Reader VLM}
+\fancyhead[R]{\small Báo cáo đồ án}
+\fancyfoot[C]{\thepage}
+
+% ============================================================
+\begin{document}
+
+% ===================== TRANG BÌA =====================
+\begin{titlepage}
+  \centering
+  \vspace*{1cm}
+  {\Large \textbf{ĐẠI HỌC BÁCH KHOA HÀ NỘI}}\\[0.5cm]
+  {\large \textbf{TRƯỜNG CÔNG NGHỆ THÔNG TIN VÀ TRUYỀN THÔNG}}\\[2cm]
+
+  {\huge \textbf{BÁO CÁO MÔN HỌC}}\\[0.5cm]
+  {\LARGE \textbf{CAPTCHA Reader VLM}}\\[0.3cm]
+  {\large \textit{Đấu Trường YOLO vs Donut vs TrOCR}}\\[2cm]
+
+  \begin{tabular}{rl}
+    \textbf{Đề tài:} & Xây dựng pipeline đọc CAPTCHA và so sánh ba mô hình AI \\
+    \textbf{Môn học:}  & Nhập môn học máy và khai phá dữ liệu \\
+    \textbf{Giảng viên:} & Ngô Văn Linh \\
+  \end{tabular}
+
+  \vfill
+  \begin{tabular}{clc}
+    \toprule
+    \textbf{STT} & \textbf{Họ và tên thành viên} & \textbf{MSSV} \\
+    \midrule
+    1 & Hoàng Minh Khôi  & 20230042 \\
+    2 & Nguyễn Thanh Tú  & 20230075 \\
+    3 & Đỗ Trường Giang  & 20235066 \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{1.5cm}
+  {\large Hà Nội, tháng 6 năm 2026}
+\end{titlepage}
+
+% ===================== LỜI CẢM ƠN =====================
+\chapter*{Lời cảm ơn}
+\addcontentsline{toc}{chapter}{Lời cảm ơn}
+Nhóm xin chân thành cảm ơn quý thầy cô đã hướng dẫn, cung cấp kiến thức và tạo điều kiện hoàn thành đồ án. Nhóm cũng ghi nhận các tài liệu mã nguồn mở từ Ultralytics (YOLO), Hugging Face (Donut, TrOCR), Albumentations và cộng đồng nghiên cứu Vision-Language Model.
+
+% ===================== TÓM TẮT =====================
+\chapter*{Tóm tắt}
+\addcontentsline{toc}{chapter}{Tóm tắt}
+\textbf{Từ khóa:} CAPTCHA, YOLO, Donut, TrOCR, OCR, Vision-Language Model, sinh dữ liệu tổng hợp.
+
+Báo cáo trình bày hệ thống \textbf{Captcha\_Reader} --- một pipeline học máy end-to-end nhằm giải CAPTCHA chữ bị méo bằng cách so sánh ba hướng tiếp cận: \textbf{YOLO11x} (phát hiện từng ký tự), \textbf{Donut} (mô hình Vision-Language với token tác vụ tùy chỉnh), và \textbf{TrOCR} (OCR seq2seq của Microsoft).
+
+Hệ thống giải quyết bài toán thiếu dữ liệu bằng module \texttt{CaptchaGenerator} sinh 10\,000 ảnh CAPTCHA tổng hợp kèm nhãn YOLO, áp dụng méo ảnh đa tầng (sóng, xoay, chữ rỗng, chồng lấn) và \texttt{CaptchaAugmenter} dựa trên Albumentations. Ba mô hình được huấn luyện trên cùng dataset, đánh giá bằng CER và Exact Match, theo dõi qua Weights \& Biases. Ứng dụng Gradio (\texttt{app.py}) cho phép upload ảnh và so sánh kết quả ba mô hình trực quan.
+
+\tableofcontents
+\listoftables
+
+% ============================================================
+\chapter{Giới thiệu}
+% ============================================================
+
+\section{Bối cảnh và vấn đề}
+CAPTCHA (\textit{Completely Automated Public Turing test to tell Computers and Humans Apart}) là lớp bảo vệ phổ biến trên web, yêu cầu người dùng nhận dạng chuỗi ký tự bị méo. Với sự phát triển của học sâu, việc đọc CAPTCHA trở thành bài toán thực nghiệm quan trọng để đánh giá khả năng nhận dạng ký tự trong điều kiện nhiễu cao.
+
+Các thách thức chính:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Thiếu dữ liệu:} CAPTCHA thật khó thu thập hợp pháp và đủ đa dạng.
+  \item \textbf{Biến dạng phức tạp:} Chữ bị sóng, xoay, chồng lấn, gạch ngang, nhiễu nền.
+  \item \textbf{Đa hướng tiếp cận:} Detection từng ký tự (YOLO) vs. OCR end-to-end (TrOCR) vs. VLM (Donut) --- chưa có so sánh thống nhất trên cùng pipeline.
+\end{itemize}
+
+\section{Mục tiêu đồ án}
+\begin{enumerate}[leftmargin=*]
+  \item Xây dựng công cụ sinh dataset CAPTCHA tổng hợp với nhãn YOLO và OCR.
+  \item Huấn luyện và fine-tune ba mô hình: YOLO11x, Donut, TrOCR.
+  \item Thiết kế hệ thống đánh giá thống nhất (CER, Exact Match, mAP).
+  \item Triển khai giao diện demo Gradio so sánh inference thời gian thực.
+\end{enumerate}
+
+\section{Phạm vi và giới hạn}
+\begin{itemize}[leftmargin=*]
+  \item Bộ ký tự tùy chỉnh 56 ký tự (\texttt{VOCAB}), loại bỏ ký tự dễ nhầm (\texttt{0/O}, \texttt{1/I/l}).
+  \item CAPTCHA dạng chữ ngang, 5--8 ký tự, kích thước $220 \times 60$ pixel.
+  \item Inference mặc định trên CPU (\texttt{app.py}); huấn luyện tối ưu cho GPU (A100).
+  \item Không triển khai REST API production; tập trung nghiên cứu và demo.
+\end{itemize}
+
+\section{Cấu trúc báo cáo}
+Chương 2 trình bày cơ sở lý thuyết. Chương 3 mô tả kiến trúc hệ thống. Chương 4--5 chi tiết sinh dữ liệu và augmentation. Chương 6--8 phân tích ba mô hình và mã nguồn huấn luyện. Chương 9--10 trình bày inference, đánh giá và kết luận.
+
+% ============================================================
+\chapter{Cơ sở lý thuyết}
+% ============================================================
+
+\section{CAPTCHA và OCR}
+OCR (\textit{Optical Character Recognition}) chuyển ảnh chữ thành text. Với CAPTCHA, OCR truyền thống (Tesseract) thường thất bại do nhiễu. Học sâu cho phép học biểu diễn trực tiếp từ dữ liệu.
+
+\section{YOLO --- Object Detection}
+YOLO (\textit{You Only Look Once}) phát hiện đối tượng trong một lần forward pass. Với CAPTCHA, mỗi ký tự là một class; chuỗi kết quả được ghép bằng cách sắp xếp bounding box theo tọa độ $x$ tăng dần.
+
+\textbf{Ưu điểm:} Modular, có thể debug từng ký tự, metric mAP chuẩn.\\
+\textbf{Nhược điểm:} Phụ thuộc chất lượng detection và thuật toán sắp xếp; khó với ký tự chồng lấn nặng.
+
+\section{Donut --- Document Vision-Language Model}
+Donut (Kim et al., 2022) kết hợp Swin Transformer encoder và BART decoder, đọc tài liệu end-to-end không cần OCR pipeline riêng. Dự án mở rộng bằng token tác vụ \texttt{<s\_captcha>} và \texttt{</s\_captcha>} để fine-tune cho CAPTCHA.
+
+\textbf{Input:} Ảnh $\rightarrow$ pixel values.\\
+\textbf{Output:} Chuỗi token \texttt{<s\_captcha>TEXT</s\_captcha>}.
+
+\section{TrOCR --- Transformer OCR}
+TrOCR (Li et al., 2021) dùng Vision Encoder (ViT) + Text Decoder (RoBERTa), pre-trained trên dữ liệu in ấn. Phiên bản \texttt{trocr-base-printed} phù hợp CAPTCHA dạng chữ in.
+
+\section{Các chỉ số đánh giá}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{CER (Character Error Rate):} Tỷ lệ ký tự sai so với chuỗi gốc, dùng thư viện \texttt{evaluate}.
+  \item \textbf{Exact Match (EM):} Tỷ lệ chuỗi dự đoán trùng hoàn toàn chuỗi ground truth.
+  \item \textbf{mAP50 / mAP50-95:} Metric detection của YOLO (IoU 0.5 và trung bình 0.5--0.95).
+\end{itemize}
+
+% ============================================================
+\chapter{Kiến trúc hệ thống}
+% ============================================================
+
+\section{Tổng quan kiến trúc}
+Dự án có cấu trúc phẳng (flat repository), không chia package con. Luồng xử lý chính:
+
+\begin{center}
+\begin{tabular}{c}
+  \texttt{config.py} \\
+  $\downarrow$ \\
+  \texttt{gen\_image\_label.py} + \texttt{augment.py} $\rightarrow$ \texttt{generate\_dataset.py} \\
+  $\downarrow$ \\
+  \texttt{captcha\_dataset/} \\
+  $\downarrow$ \\
+  \texttt{YOLO.py} \quad | \quad \texttt{Donut\_train.py} \quad | \quad \texttt{TrOCR\_train.py} \\
+  $\downarrow$ \\
+  \texttt{Weights/} $\rightarrow$ \texttt{app.py} (Gradio) \\
+\end{tabular}
+\end{center}
+
+\section{Công nghệ sử dụng}
+\begin{table}[H]
+  \centering
+  \caption{Stack công nghệ}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Lớp} & \textbf{Công nghệ} & \textbf{Phiên bản (lock)} \\
+    \midrule
+    Ngôn ngữ & Python & $\geq$ 3.12 \\
+    Quản lý gói & uv + pyproject.toml & --- \\
+    Deep Learning & PyTorch, Transformers & 5.12.1 \\
+    Detection & Ultralytics YOLO & 8.4.72 \\
+    Augmentation & Albumentations & 2.0.8 \\
+    Giao diện & Gradio & 6.19.0 \\
+    Theo dõi thí nghiệm & Weights \& Biases & 0.27.2 \\
+    Xử lý ảnh & OpenCV, Pillow & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Danh mục file mã nguồn}
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Phân công module theo trách nhiệm (SRP)}
+  \begin{tabular}{p{4.5cm}p{9cm}}
+    \toprule
+    \textbf{File} & \textbf{Trách nhiệm} \\
+    \midrule
+    \texttt{config.py} & Cấu hình tập trung: đường dẫn, charset, tham số méo ảnh \\
+    \texttt{gen\_image\_label.py} & \texttt{CaptchaGenerator}: sinh 1 cặp (ảnh, nhãn YOLO) \\
+    \texttt{augment.py} & \texttt{CaptchaAugmenter}: pipeline Albumentations + custom transforms \\
+    \texttt{generate\_dataset.py} & \texttt{DatasetBuilder}: I/O hàng loạt, convert nhãn \\
+    \texttt{marker.py} & \texttt{BBoxMarker}: vẽ bbox debug \\
+    \texttt{utils.py} & \texttt{clean\_text()}: lọc token Donut \\
+    \texttt{YOLO.py} & Custom dataset/trainer YOLO + callback CER \\
+    \texttt{Donut\_train.py} & Dataset + Trainer Donut \\
+    \texttt{TrOCR\_train.py} & Dataset + Seq2SeqTrainer TrOCR \\
+    \texttt{app.py} & Inference Gradio 3 mô hình \\
+    \texttt{modeling\_donut\_swin.py} & Patch Swin encoder cho Donut (964 dòng) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Cấu hình tập trung (\texttt{config.py})}
+Toàn bộ siêu tham số được khai báo tại \texttt{config.py}:
+
+\begin{table}[H]
+  \centering
+  \caption{Tham số chính trong \texttt{config.py}}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Tham số} & \textbf{Giá trị} & \textbf{Ý nghĩa} \\
+    \midrule
+    \texttt{NUM\_IMAGES} & 10\,000 & Tổng số ảnh sinh \\
+    \texttt{TRAIN\_RATIO} & 0.9 & 90\% train, 10\% val \\
+    \texttt{IMG\_W} $\times$ \texttt{IMG\_H} & $220 \times 60$ & Kích thước ảnh CAPTCHA \\
+    \texttt{MIN\_CHARS} -- \texttt{MAX\_CHARS} & 5 -- 8 & Số ký tự mỗi ảnh \\
+    \texttt{STEP\_MIN} -- \texttt{STEP\_MAX} & $-13$ -- $8$ & Khoảng cách ký tự (âm = chồng lấn) \\
+    \texttt{HOLLOW\_PROB} & 0.3 & Xác suất chữ rỗng (hollow) \\
+    \texttt{FONT\_SIZE} & 40 & Cỡ font khi render \\
+    \texttt{CHAR\_CANVAS\_SIZE} & $(100, 100)$ & Canvas RGBA trung gian mỗi ký tự \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{Bộ ký tự:}
+\begin{lstlisting}
+VOCAB   = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz"  # 56 ky tu
+CHARSET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"                        # 32 ky tu (YOLO)
+\end{lstlisting}
+
+% ============================================================
+\chapter{Sinh dữ liệu CAPTCHA tổng hợp}
+% ============================================================
+
+\section{Lớp \texttt{CaptchaGenerator}}
+File \texttt{gen\_image\_label.py} định nghĩa class \texttt{CaptchaGenerator} với nguyên tắc \textbf{SRP}: chỉ sinh một cặp (ảnh, nhãn) trên RAM, không ghi đĩa.
+
+\subsection{Khởi tạo}
+Constructor tải sẵn 10 font TTF từ \texttt{FONT\_PATHS} (Arial, Calibri, Consola, Courier, Georgia, Segoe UI, Tahoma, Times, Trebuchet, Verdana) vào bộ nhớ để tối ưu tốc độ khi sinh hàng loạt.
+
+\subsection{Hàm \texttt{generate\_data()}}
+Quy trình sinh một ảnh CAPTCHA:
+
+\begin{enumerate}[leftmargin=*]
+  \item Tạo nền RGB ngẫu nhiên (màu sáng: 200--255).
+  \item Chọn ngẫu nhiên $n \in [5, 8]$ ký tự từ \texttt{VOCAB}.
+  \item Với mỗi ký tự:
+  \begin{itemize}
+    \item Chọn font ngẫu nhiên, vẽ lên canvas RGBA $100 \times 100$.
+    \item Màu chữ tối (0--100), stroke width 1--2 để chữ béo hơn.
+    \item Scale ngẫu nhiên $[0.7, 1.2]$, méo qua \texttt{\_distort\_single\_char\_cv2()}.
+    \item Shear (xiên) $[-0.3, 0.3]$, xoay $[-35°, 35°]$.
+    \item Paste lên ảnh nền tại vị trí $(current\_x, current\_y)$ ngẫu nhiên theo chiều dọc.
+    \item Tính bbox chuẩn hóa YOLO $(class, x_c, y_c, w, h)$ với margin 0.002 chống sai số float.
+    \item Cập nhật $current\_x += cw + step$, với $step \in [-13, 8]$ (cho phép chồng ký tự).
+  \end{itemize}
+  \item Trả về \texttt{(base\_image, labels\_content)}.
+\end{enumerate}
+
+\subsection{Hàm \texttt{\_distort\_single\_char\_cv2()}}
+Đây là lõi méo ảnh từng ký tự, gồm 4 giai đoạn:
+
+\textbf{(1) Hollow text (chữ rỗng):} Với xác suất 30\%, tạo viền chữ bằng phép dilate/erode: $\text{hollow} = \text{dilate}(base) - \text{erode}(base)$. Kernel thích ứng theo kích thước chữ (tối đa 3px).
+
+\textbf{(2) Morphology:} Với xác suất 70\%, dilate hoặc erode với kernel dọc/ngang ngẫu nhiên.
+
+\textbf{(3) Wave distortion:} Ánh xạ lưới tọa độ bằng hàm sin/cos:
+\begin{align}
+x' &= x + s_x \sin(y/\lambda + \phi_x) \\
+y' &= y + s_y \cos(x/\lambda + \phi_y)
+\end{align}
+với $s \in [3, 6]$, $\lambda \in [9, 20]$. Dùng \texttt{cv2.remap} với interpolation cubic.
+
+\section{Lớp \texttt{DatasetBuilder}}
+File \texttt{generate\_dataset.py} quản lý I/O hàng loạt.
+
+\subsection{Chiến lược Train vs Validation}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Train (9\,000 ảnh):} Lưu ảnh \textit{phôi gốc} từ generator. Augmentation được áp dụng \textbf{on-the-fly} lúc train.
+  \item \textbf{Val (1\,000 ảnh):} Áp dụng \texttt{CaptchaAugmenter} \textbf{trước khi lưu} để phân phối val bám sát nhiễu thực tế, cố định trên đĩa.
+\end{itemize}
+
+\subsection{Hàm \texttt{build\_yolo\_labels()}}
+Chuyển nhãn từ \texttt{OCR\_labels/} (56 class, \texttt{VOCAB}) sang \texttt{labels/} (32 class, \texttt{CHARSET}):
+\begin{enumerate}[leftmargin=*]
+  \item Đọc \texttt{class\_id} từ file OCR.
+  \item Tra \texttt{VOCAB[old\_id]} $\rightarrow$ ký tự thật $\rightarrow$ ép hoa.
+  \item Ánh xạ sang \texttt{CHARSET.index(upper\_char)} $\rightarrow$ \texttt{new\_id}.
+  \item Giữ nguyên 4 tọa độ bbox.
+\end{enumerate}
+
+\textbf{Lưu ý:} Trong \texttt{\_\_main\_\_}, \texttt{builder.build()} bị comment; mặc định chỉ chạy \texttt{build\_yolo\_labels()}.
+
+\subsection{Cấu trúc thư mục dataset}
+\begin{verbatim}
+captcha_dataset/
+  train/images/          # PNG captcha_000000.png ...
+  train/OCR_labels/      # Nhan 56 class (Donut, TrOCR)
+  train/labels/          # Nhan 32 class (YOLO)
+  val/images/
+  val/OCR_labels/
+  val/labels/
+\end{verbatim}
+
+% ============================================================
+\chapter{Augmentation và tiền xử lý}
+% ============================================================
+
+\section{Lớp \texttt{CaptchaAugmenter}}
+Định nghĩa trong \texttt{augment.py}, dùng Albumentations với \texttt{BboxParams(format='yolo')} để đồng bộ bbox khi biến đổi ảnh.
+
+\subsection{Custom transforms}
+\begin{table}[H]
+  \centering
+  \caption{Các transform tùy chỉnh}
+  \begin{tabular}{p{3.5cm}p{9.5cm}}
+    \toprule
+    \textbf{Class} & \textbf{Mô tả} \\
+    \midrule
+    \texttt{RandomNoiseLines} & 2--6 đường thẳng ngẫu nhiên, độ dày 1--3px \\
+    \texttt{RandomNoiseDots} & 35--40 chấm tròn, bán kính 2--4px \\
+    \texttt{RandomRegionBlur} & 1--6 vùng blur cục bộ, kernel 3--5 \\
+    \texttt{StrikethroughLine} & 1--5 đường gạch ngang xuyên ảnh \\
+    \texttt{RandomQuadInvert} & Đảo màu trong vùng tứ giác ngẫu nhiên \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Pipeline tổng hợp}
+\begin{lstlisting}
+A.Compose([
+    A.GridDistortion(num_steps=5, distort_limit=0.2, p=0.3),
+    A.OneOf([RandomNoiseLines, StrikethroughLine, RandomRegionBlur], p=0.7),
+    A.OneOf([RandomQuadInvert, RandomNoiseDots, A.GaussNoise], p=0.6),
+    A.ColorJitter(brightness=0.3, contrast=0.3, p=0.5),
+    A.Blur(blur_limit=2, p=0.2),
+], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
+\end{lstlisting}
+
+\subsection{Augmentation on-the-fly khi train}
+Cả ba script huấn luyện đều gọi \texttt{CaptchaAugmenter} trong \texttt{\_\_getitem\_\_} (hoặc \texttt{get\_image\_and\_label} với YOLO) \textbf{chỉ trên tập train}. Tập val không augment thêm (Donut/TrOCR) hoặc đã augment sẵn khi sinh (val images). Có thể xem trước hiệu ứng bằng lệnh \texttt{uv run sample.py}.
+
+% ============================================================
+\chapter{Mô hình YOLO11x}
+% ============================================================
+
+\section{Ý tưởng}
+YOLO coi mỗi ký tự là một đối tượng thuộc 1 trong 32 class. Sau inference, các box được sắp xếp theo tọa độ $x$ trung tâm tăng dần, ghép \texttt{CHARSET[class\_id]} thành chuỗi.
+
+\section{Cấu hình dataset (\texttt{dataset.yaml})}
+\begin{lstlisting}
+path: ./captcha_dataset
+train: train/images
+val: val/images
+names:  # 32 class, thu tu khop CHARSET
+  0: '2'
+  1: '3'
+  ...
+  31: 'Z'
+\end{lstlisting}
+
+\section{Custom Dataset và Trainer}
+File \texttt{YOLO.py} ghi đè Ultralytics:
+
+\subsection{\texttt{CustomCaptchaDataset}}
+Kế thừa \texttt{YOLODataset}, override \texttt{get\_image\_and\_label()}:
+\begin{itemize}[leftmargin=*]
+  \item Gọi hàm gốc lấy ảnh BGR + instances.
+  \item Nếu \texttt{augment=True} (train): chuyển BGR$\rightarrow$RGB, gọi \texttt{CaptchaAugmenter}, cập nhật \texttt{instances.bboxes} và \texttt{cls}.
+  \item Fallback im lặng nếu augment lỗi (box bị loại).
+\end{itemize}
+
+\subsection{\texttt{CustomTrainer}}
+Override \texttt{build\_dataset()} để YOLO dùng \texttt{CustomCaptchaDataset} thay vì dataset mặc định.
+
+\subsection{Tắt augmentation mặc định của YOLO}
+Để tránh xung đột với \texttt{CaptchaAugmenter}:
+\begin{lstlisting}
+"mosaic": 0.0, "fliplr": 0.0, "flipud": 0.0,
+"degrees": 0.0, "mixup": 0.0
+\end{lstlisting}
+
+\section{Hyperparameters huấn luyện}
+\begin{table}[H]
+  \centering
+  \caption{Cấu hình train YOLO (\texttt{YOLO.py})}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Tham số} & \textbf{Giá trị} \\
+    \midrule
+    Base model & \texttt{yolo11x.pt} \\
+    Image size & 320 \\
+    Batch size & 128 \\
+    Epochs & 150 \\
+    Patience & 30 \\
+    WandB project & \texttt{Captcha\_YOLOv11x} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Callback đánh giá CER tùy chỉnh}
+Hàm \texttt{on\_fit\_epoch\_end} chạy sau mỗi epoch:
+\begin{enumerate}[leftmargin=*]
+  \item Load checkpoint \texttt{trainer.last} bằng \texttt{YOLO()}.
+  \item Duyệt toàn bộ ảnh val, decode ground truth từ \texttt{labels/} (sort theo $x$).
+  \item Predict, sort box, ghép chuỗi.
+  \item Tính CER, Exact Match, log thêm mAP50/mAP50-95 lên WandB.
+\end{enumerate}
+
+\section{Workaround \texttt{torchaudio}}
+YOLO/Ultralytics có thể import \texttt{torchaudio} gây lỗi. Mã nguồn mock module rỗng vào \texttt{sys.modules['torchaudio']} trước khi import Ultralytics.
+
+\section{Inference (\texttt{app.py} --- \texttt{run\_yolo})}
+\begin{lstlisting}
+results = yolo_model(img_pil, verbose=False)[0]
+for box in results.boxes:
+    cls_id = int(box.cls[0])
+    char_label = id_to_char[cls_id]  # CHARSET
+    # Ve box bang OpenCV, luu x_center de sort
+pred_boxes.sort(key=lambda item: item[0])
+final_text = "".join([item[1] for item in pred_boxes])
+\end{lstlisting}
+
+% ============================================================
+\chapter{Mô hình Donut}
+% ============================================================
+
+\section{Kiến trúc và pre-trained}
+\begin{itemize}[leftmargin=*]
+  \item Base: \texttt{naver-clova-ix/donut-base}
+  \item Encoder: Swin Transformer (patch \texttt{modeling\_donut\_swin.py})
+  \item Decoder: BART
+  \item Kích thước ảnh đầu vào: height=128, width=384 (\texttt{do\_align\_long\_axis=False})
+\end{itemize}
+
+\section{Token tác vụ tùy chỉnh}
+Thêm 2 token vào tokenizer và resize embedding decoder:
+\begin{lstlisting}
+processor.tokenizer.add_tokens(["<s_captcha>", "</s_captcha>"])
+model.decoder.resize_token_embeddings(len(processor.tokenizer))
+model.config.decoder_start_token_id = id("<s_captcha>")
+model.config.eos_token_id = id("</s_captcha>")
+\end{lstlisting}
+
+Chuỗi huấn luyện: \texttt{<s\_captcha>TEXT</s\_captcha>}
+
+\section{Dataset \texttt{CaptchaDonutDataset}}
+\begin{itemize}[leftmargin=*]
+  \item Đọc \texttt{OCR\_labels/}, gom ký tự thành \texttt{text\_label} (ép hoa).
+  \item Augment on-the-fly nếu train.
+  \item Encode: \texttt{pixel\_values} + \texttt{labels} (token ids, pad $\rightarrow$ -100).
+\end{itemize}
+
+\section{Metrics}
+Hàm \texttt{compute\_metrics}: decode với \texttt{skip\_special\_tokens=False}, gọi \texttt{clean\_text()} để cắt tại \texttt{</s\_captcha>} và loại tag.
+
+\section{Hyperparameters}
+\begin{table}[H]
+  \centering
+  \caption{Cấu hình train Donut}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Tham số} & \textbf{Giá trị} \\
+    \midrule
+    Batch size (train/eval) & 64 \\
+    Learning rate & $2 \times 10^{-5}$ \\
+    Epochs & 100 \\
+    Precision & bf16 \\
+    Early stopping patience & 5 \\
+    Best model metric & \texttt{eval\_loss} \\
+    WandB project & \texttt{donut-captcha-vlm} \\
+    Output dir & \texttt{./tmp\_donut\_checkpoints} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Patch Swin Encoder}
+File \texttt{modeling\_donut\_swin.py} (964 dòng) phải copy vào:
+\begin{verbatim}
+.venv/Lib/site-packages/transformers/models/donut/modeling_donut_swin.py
+\end{verbatim}
+Đây là bản Swin Transformer tùy chỉnh cho Donut, không có final layer norm trên hidden states cuối.
+
+\section{Inference}
+\begin{lstlisting}
+task_prompt = "<s_captcha>"
+decoder_input_ids = tokenizer(task_prompt, ...).input_ids
+generated_ids = model.generate(pixel_values, decoder_input_ids=...,
+    max_length=12, num_beams=4, early_stopping=True)
+text = clean_text(batch_decode(generated_ids, skip_special_tokens=False))
+\end{lstlisting}
+
+% ============================================================
+\chapter{Mô hình TrOCR}
+% ============================================================
+
+\section{Kiến trúc}
+\begin{itemize}[leftmargin=*]
+  \item Base: \texttt{microsoft/trocr-base-printed}
+  \item Vision Encoder: ViT
+  \item Text Decoder: RoBERTa-based
+  \item Không cần prompt đặc biệt; label là chuỗi text thuần
+\end{itemize}
+
+\section{Dataset \texttt{CaptchaTrOCRDataset}}
+Tương tự Donut nhưng:
+\begin{itemize}[leftmargin=*]
+  \item \texttt{labels} = tokenize \texttt{text\_label} trực tiếp (không có \texttt{<s\_captcha>}).
+  \item Dùng \texttt{TrOCRProcessor} thay \texttt{DonutProcessor}.
+\end{itemize}
+
+\section{Seq2SeqTrainer}
+Khác Donut ở các điểm:
+\begin{itemize}[leftmargin=*]
+  \item Dùng \texttt{Seq2SeqTrainingArguments} + \texttt{Seq2SeqTrainer}.
+  \item \texttt{predict\_with\_generate=True} --- bắt buộc để eval sinh text thật.
+  \item \texttt{metric\_for\_best\_model="cer"} (thực dụng hơn loss).
+\end{itemize}
+
+\section{Generation config}
+\begin{lstlisting}
+model.generation_config.num_beams = 4
+model.generation_config.max_length = 12
+model.generation_config.early_stopping = True
+model.generation_config.no_repeat_ngram_size = 3
+model.generation_config.length_penalty = 2.0
+\end{lstlisting}
+
+\section{RestrictVocabLogitsProcessor (\texttt{test\_trocr.py})}
+Thử nghiệm giới hạn logits chỉ cho phép token thuộc \texttt{VOCAB}, giảm hallucination khi test trên dữ liệu sinh tổng hợp.
+
+\section{Hyperparameters}
+\begin{table}[H]
+  \centering
+  \caption{Cấu hình train TrOCR}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Tham số} & \textbf{Giá trị} \\
+    \midrule
+    Batch size & 64 \\
+    Learning rate & $2 \times 10^{-5}$ \\
+    Epochs & 100 \\
+    Dataloader workers & 8 \\
+    Early stopping & patience 5 \\
+    Best model metric & CER \\
+    WandB project & \texttt{trocr-captcha-vlm} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ============================================================
+\chapter{Ứng dụng Inference và Demo}
+% ============================================================
+
+\section{Ứng dụng Gradio (\texttt{app.py})}
+Khi khởi động, nạp đồng thời 3 model từ \texttt{Weights/}:
+\begin{itemize}[leftmargin=*]
+  \item \texttt{best\_yolo11x.pt}
+  \item \texttt{best\_trocr\_model/}
+  \item \texttt{best\_donut\_model/}
+\end{itemize}
+
+Device mặc định: \textbf{CPU} (\texttt{torch.device("cpu")}).
+
+\subsection{Tiền xử lý ảnh đầu vào}
+\begin{lstlisting}
+w, h = input_img.size
+new_h = int(h * (220 / w))
+input_img_rescaled = input_img.resize((220, new_h))
+\end{lstlisting}
+Chuẩn hóa chiều rộng về 220px (khớp \texttt{IMG\_W} trong config).
+
+\subsection{Giao diện}
+\begin{itemize}[leftmargin=*]
+  \item Input: upload/paste ảnh PIL.
+  \item Output: ảnh YOLO có bbox + 3 textbox (YOLO, Donut, TrOCR).
+  \item Theme: \texttt{gr.themes.Soft()}, \texttt{inbrowser=True}.
+\end{itemize}
+
+\section{Hàm \texttt{clean\_text()} (\texttt{utils.py})}
+Dùng chung cho Donut train/eval/inference:
+\begin{lstlisting}
+def clean_text(text: str) -> str:
+    if "</s_captcha>" in text:
+        text = text.split("</s_captcha>")[0]
+    clean = re.sub(r'<[^>]+>', '', text).strip()
+    return clean
+\end{lstlisting}
+
+\section{Callback trực quan WandB}
+Ba file \texttt{sample\_test*.py} log ảnh mẫu mỗi epoch lên WandB:
+\begin{itemize}[leftmargin=*]
+  \item \texttt{sample\_test.py} --- Donut
+  \item \texttt{sample\_test\_TrOCR.py} --- TrOCR
+  \item \texttt{sample\_test\_YOLO.py} --- YOLO (vẽ box)
+\end{itemize}
+
+% ============================================================
+\chapter{Đánh giá thực nghiệm}
+% ============================================================
+
+\section{Thiết lập thí nghiệm}
+\begin{itemize}[leftmargin=*]
+  \item Dataset: 10\,000 ảnh (9\,000 train / 1\,000 val), hoặc tải sẵn từ Google Drive.
+  \item Đánh giá trên tập val và thư mục \texttt{real\_captcha/} (CAPTCHA thực tế).
+  \item Metrics thống nhất: CER, Exact Match; YOLO thêm mAP.
+\end{itemize}
+
+\section{Bảng so sánh hyperparameters}
+\begin{table}[H]
+  \centering
+  \caption{So sánh cấu hình huấn luyện ba mô hình}
+  \begin{tabular}{lccc}
+    \toprule
+    \textbf{Tham số} & \textbf{YOLO} & \textbf{Donut} & \textbf{TrOCR} \\
+    \midrule
+    Loại trainer & CustomTrainer & Trainer & Seq2SeqTrainer \\
+    Batch size & 128 & 64 & 64 \\
+    Learning rate & (mặc định YOLO) & $2 \times 10^{-5}$ & $2 \times 10^{-5}$ \\
+    Epochs & 150 & 100 & 100 \\
+    Nhãn train & bbox (32 cls) & \texttt{<s\_captcha>...} & plain text \\
+    Augment train & on-the-fly & on-the-fly & on-the-fly \\
+    Best metric & mAP + CER & eval\_loss & CER \\
+    Beam search & N/A & 4 & 4 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Kết quả (điền sau khi train)}
+\begin{table}[H]
+  \centering
+  \caption{Kết quả đánh giá trên tập validation}
+  \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Mô hình} & \textbf{CER} & \textbf{Exact Match} & \textbf{mAP50} & \textbf{Ghi chú} \\
+    \midrule
+    YOLO11x & --- & --- & --- & Detection + sort \\
+    Donut   & --- & --- & N/A & VLM + task token \\
+    TrOCR   & --- & --- & N/A & OCR end-to-end \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textit{Nhóm điền số liệu thực tế từ WandB sau khi hoàn tất huấn luyện.}
+
+\section{Phân tích định tính}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{YOLO:} Mạnh khi ký tự tách rời; yếu khi chồng lấn nặng (\texttt{STEP\_MIN=-13}).
+  \item \textbf{Donut:} Linh hoạt với prompt tác vụ; cần patch Swin, cấu hình token phức tạp hơn.
+  \item \textbf{TrOCR:} Đơn giản nhất về pipeline; phụ thuộc pre-trained trên chữ in.
+\end{itemize}
+
+% ============================================================
+\chapter{Khó khăn, giải pháp và hướng phát triển}
+% ============================================================
+
+\section{Khó khăn gặp phải}
+\begin{table}[H]
+  \centering
+  \caption{Khó khăn và giải pháp trong quá trình triển khai}
+  \begin{tabular}{p{4.5cm}p{8.5cm}}
+    \toprule
+    \textbf{Khó khăn} & \textbf{Giải pháp trong mã nguồn} \\
+    \midrule
+    Thiếu dữ liệu & \texttt{CaptchaGenerator} + \texttt{DatasetBuilder} \\
+    Bbox lệch sau augment & Albumentations \texttt{BboxParams} + fallback ảnh gốc \\
+    Donut lỗi Swin & Patch \texttt{modeling\_donut\_swin.py} \\
+    YOLO import torchaudio & Mock \texttt{sys.modules['torchaudio']} \\
+    Donut sinh text thừa & \texttt{clean\_text()} cắt tại \texttt{</s\_captcha>} \\
+    Hai định dạng nhãn & \texttt{build\_yolo\_labels()} OCR$\rightarrow$YOLO \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Hướng phát triển}
+\begin{enumerate}[leftmargin=*]
+  \item Tăng quy mô dataset lên 100k+ ảnh (comment trong config gợi ý A100).
+  \item Huấn luyện trên GPU local, hỗ trợ CUDA trong \texttt{app.py}.
+  \item Ensemble voting từ 3 mô hình.
+  \item Triển khai FastAPI + Docker cho production.
+  \item Mở rộng charset, CAPTCHA dạng dọc hoặc đa dòng.
+\end{enumerate}
+
+% ============================================================
+\chapter*{Kết luận}
+\addcontentsline{toc}{chapter}{Kết luận}
+
+Nhóm đã xây dựng thành công hệ thống \textbf{Captcha\_Reader} với pipeline hoàn chỉnh từ sinh dữ liệu đến demo inference. Ba mô hình YOLO11x, Donut và TrOCR được triển khai trên cùng nền tảng mã nguồn, chia sẻ module augmentation và metrics, tạo điều kiện so sánh công bằng.
+
+Đóng góp kỹ thuật chính:
+\begin{itemize}[leftmargin=*]
+  \item Module sinh CAPTCHA đa tầng méo (wave, hollow, overlap) kèm nhãn YOLO chính xác.
+  \item Pipeline Albumentations bbox-aware với 5 custom transforms.
+  \item Custom YOLO trainer tích hợp augment và callback CER/EM.
+  \item Fine-tune Donut với task token và TrOCR với Seq2SeqTrainer.
+  \item Giao diện Gradio so sánh trực quan ba mô hình.
+\end{itemize}
+
+% ============================================================
+\chapter*{Tài liệu tham khảo}
+\addcontentsline{toc}{chapter}{Tài liệu tham khảo}
+\begin{enumerate}[leftmargin=*]
+  \item Redmon, J., et al. ``You Only Look Once: Unified, Real-Time Object Detection.'' CVPR, 2016.
+  \item Kim, G., et al. ``OCR-free Document Understanding Transformer (Donut).'' ECCV, 2022.
+  \item Li, M., et al. ``TrOCR: Transformer-based OCR with Pre-trained Models.'' AAAI, 2023.
+  \item Ultralytics YOLO11 Documentation: \url{https://docs.ultralytics.com}
+  \item Hugging Face Transformers: \url{https://huggingface.co/docs/transformers}
+  \item Repository dự án: \url{https://github.com/zangdo/Captcha_Reader}
+\end{enumerate}
+
+% ============================================================
+\appendix
+\chapter{Phụ lục: Hướng dẫn cài đặt và chạy}
+% ============================================================
+
+\section{Cài đặt môi trường}
+\begin{lstlisting}[language=bash]
+pip install uv
+uv sync
+# Copy modeling_donut_swin.py vao transformers (xem README)
+# Tai dataset + weights tu Google Drive
+\end{lstlisting}
+
+\section{Lệnh chạy chính}
+\begin{table}[H]
+  \centering
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Lệnh} & \textbf{Mô tả} \\
+    \midrule
+    \texttt{uv run sample.py} & Xem pipeline sinh + augment \\
+    \texttt{uv run generate\_dataset.py} & Sinh/convert dataset \\
+    \texttt{uv run YOLO.py} & Train YOLO \\
+    \texttt{uv run Donut\_train.py} & Train Donut \\
+    \texttt{uv run TrOCR\_train.py} & Train TrOCR \\
+    \texttt{uv run app.py} & Demo Gradio \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\end{document}
